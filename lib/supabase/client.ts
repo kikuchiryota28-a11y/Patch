@@ -31,6 +31,7 @@ type Database = {
           patched_text: string;
           patch_type: string;
           upvotes: number;
+          is_ai_generated: boolean;
           created_at: string;
         };
         Insert: {
@@ -39,6 +40,7 @@ type Database = {
           patched_text: string;
           patch_type: string;
           upvotes?: number;
+          is_ai_generated?: boolean;
           created_at?: string;
         };
         Update: {
@@ -47,6 +49,7 @@ type Database = {
           patched_text?: string;
           patch_type?: string;
           upvotes?: number;
+          is_ai_generated?: boolean;
           created_at?: string;
         };
         Relationships: [];
@@ -62,6 +65,7 @@ type Database = {
           patched_text: string;
           patch_type: string;
           upvotes: number;
+          is_ai_generated: boolean;
           created_at: string;
         }[];
       };

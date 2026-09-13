@@ -1,0 +1,19 @@
+'use client';
+
+import Link from 'next/link';
+import { Crown, Sparkles, Trophy } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Header } from '@/components/Header';
+import { fetchRanking } from '@/lib/patchDb';
+
+export default function RankingPage() {
+  const [data,setData]=useState<Awaited<ReturnType<typeof fetchRanking>> | null>(null);
+  useEffect(()=>{void fetchRanking().then(setData).catch(console.error);},[]);
+  return <main className="min-h-screen"><Header/><div className="mx-auto max-w-5xl px-4 pb-24 pt-10 md:px-6 md:pt-14">
+    <div className="mb-10"><div className="mb-3 inline-flex items-center gap-2 rounded-full border border-amber-300/15 bg-amber-300/[0.07] px-3 py-1.5 text-xs font-bold text-amber-200"><Trophy size={13}/>殿堂入り / Hall of Fame</div><h1 className="text-4xl font-black tracking-[-0.04em] md:text-6xl">The patches people<br/><span className="text-zinc-500">couldn't stop upvoting.</span></h1><p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-500 md:text-base">All-time leaders. The funniest rewrites rise, and the people behind them get their moment.</p></div>
+    <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
+      <section><div className="mb-4 text-xs font-bold uppercase tracking-[0.18em] text-zinc-600">Top patches</div><div className="space-y-4">{data?.patches.slice(0,20).map((entry,index)=><Link href={`/issues/${entry.issueId}`} key={entry.patch.id} className="group block rounded-3xl border border-white/8 bg-white/[0.025] p-5 transition hover:border-white/15 hover:bg-white/[0.04]"><div className="flex items-start gap-4"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/[0.05] text-sm font-black text-zinc-400">#{index+1}</div><div className="min-w-0 flex-1"><div className="mb-2 flex flex-wrap items-center gap-2 text-[11px]"><span className="font-semibold text-zinc-300">@{entry.patch.author}</span><span className="text-zinc-700">•</span><span className="text-zinc-500">{entry.patch.style}</span>{entry.patch.isAiGenerated&&<span className="inline-flex items-center gap-1 rounded-full border border-violet-300/15 bg-violet-300/[0.08] px-2 py-1 font-bold text-violet-200"><Sparkles size={10}/>AI</span>}</div><p className="line-clamp-3 text-sm leading-6 text-zinc-300">{entry.patch.text}</p><div className="mt-3 text-xs text-zinc-600">on {entry.issueTitle}</div></div><div className="shrink-0 rounded-full border border-indigo-300/15 bg-indigo-300/[0.07] px-3 py-1.5 text-xs font-black text-indigo-200">↑ {entry.patch.votes}</div></div></Link>)}{!data&&<div className="rounded-3xl border border-white/8 p-10 text-center text-sm text-zinc-500">Loading the Hall of Fame…</div>}{data?.patches.length===0&&<div className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-sm text-zinc-500">No ranked patches yet. Make history.</div>}</div></section>
+      <aside><div className="mb-4 text-xs font-bold uppercase tracking-[0.18em] text-zinc-600">Top creators</div><div className="overflow-hidden rounded-3xl border border-white/8 bg-white/[0.025]">{data?.creators.map((creator,index)=><div key={creator.actorId} className="flex items-center gap-3 border-b border-white/5 px-5 py-4 last:border-0"><div className={`grid h-9 w-9 place-items-center rounded-xl text-sm font-black ${index===0?'bg-amber-300/15 text-amber-200':'bg-white/[0.05] text-zinc-500'}`}>{index===0?<Crown size={16}/>:index+1}</div><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-zinc-200">@{creator.label}</div><div className="text-[11px] text-zinc-600">total upvotes</div></div><div className="text-sm font-black text-zinc-300">{creator.totalUpvotes}</div></div>)}{data?.creators.length===0&&<div className="p-6 text-center text-sm text-zinc-500">No creators yet.</div>}</div></aside>
+    </div>
+  </div></main>;
+}

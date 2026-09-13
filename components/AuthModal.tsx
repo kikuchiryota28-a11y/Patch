@@ -1,65 +1,13 @@
 'use client';
-
-import { useEffect, useState } from 'react';
-import { Github, Mail, X } from 'lucide-react';
-import { getSupabaseClient } from '@/lib/supabase/client';
-import { useAuth } from '@/context/AuthContext';
-
-export function AuthModal() {
-  const { user, authOpen, closeAuth, needsOnboarding, saveProfile } = useAuth();
-  const supabase = getSupabaseClient();
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [language, setLanguage] = useState<'EN'|'JA'>('EN');
-  const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      setDisplayName(String(user.user_metadata?.full_name ?? user.user_metadata?.name ?? ''));
-      setAvatarUrl(String(user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? ''));
-    }
-  }, [user]);
-
-  if (!authOpen && !needsOnboarding) return null;
-
-  async function oauth(provider: 'google'|'github'|'x') {
-    if (!supabase) return;
-    setBusy(true); setMessage('');
-    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback?next=/` } });
-    if (error) { setMessage(error.message); setBusy(false); }
-  }
-  async function magicLink() {
-    if (!supabase || !email.trim()) return;
-    setBusy(true); setMessage('');
-    const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/` } });
-    setMessage(error ? error.message : 'Check your email for the sign-in link.'); setBusy(false);
-  }
-  async function finishProfile() {
-    setBusy(true); setMessage('');
-    try { await saveProfile({ username, displayName, avatarUrl, language }); closeAuth(); } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not save profile.'); } finally { setBusy(false); }
-  }
-
-  const onboarding = Boolean(user && needsOnboarding);
-  return <div className="fixed inset-0 z-[60] grid place-items-center bg-black/75 p-4 backdrop-blur-sm" onMouseDown={() => { if (!onboarding) closeAuth(); }}>
-    <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900 p-6 shadow-2xl" onMouseDown={e=>e.stopPropagation()}>
-      <div className="mb-6 flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Patch!</p><h2 className="mt-1 text-xl font-bold text-white">{onboarding ? 'Finish your Patchsmith profile' : 'Join Patch!'}</h2><p className="mt-1 text-sm text-zinc-500">{onboarding ? 'One quick step before you start rewriting reality.' : 'Read freely. Sign in when you want to participate.'}</p></div>{!onboarding && <button onClick={closeAuth} aria-label="Close"><X size={18}/></button>}</div>
-      {onboarding ? <div className="space-y-4">
-        <div><label className="mb-1.5 block text-xs font-semibold text-zinc-400">Username</label><div className="flex items-center rounded-2xl border border-white/10 bg-zinc-950 px-4"><span className="text-zinc-600">@</span><input value={username} onChange={e=>setUsername(e.target.value)} placeholder="patchsmith" className="w-full bg-transparent px-2 py-3 text-sm outline-none" maxLength={24}/></div></div>
-        <div><label className="mb-1.5 block text-xs font-semibold text-zinc-400">Display name</label><input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Your name" className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm" maxLength={50}/></div>
-        <div><label className="mb-1.5 block text-xs font-semibold text-zinc-400">Avatar URL</label><input value={avatarUrl} onChange={e=>setAvatarUrl(e.target.value)} placeholder="https://…" className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm" /></div>
-        <div><label className="mb-1.5 block text-xs font-semibold text-zinc-400">Preferred content language</label><select value={language} onChange={e=>setLanguage(e.target.value as 'EN'|'JA')} className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm"><option value="EN">English</option><option value="JA">日本語</option></select></div>
-        <button onClick={finishProfile} disabled={busy} className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40">{busy ? 'Saving…' : 'Complete profile'}</button>
-      </div> : <div className="space-y-3">
-        <button onClick={()=>oauth('google')} disabled={busy} className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white px-4 py-3 text-sm font-bold text-zinc-950"><span className="text-base">G</span>Continue with Google</button>
-        <button onClick={()=>oauth('github')} disabled={busy} className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-zinc-800 px-4 py-3 text-sm font-bold text-white"><Github size={17}/>Continue with GitHub</button>
-        <button onClick={()=>oauth('x')} disabled={busy} className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm font-bold text-white">𝕏 Continue with X</button>
-        <div className="my-4 flex items-center gap-3 text-[10px] uppercase tracking-[0.15em] text-zinc-600"><span className="h-px flex-1 bg-white/5"/>or<span className="h-px flex-1 bg-white/5"/></div>
-        <div className="flex gap-2"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm"/><button onClick={magicLink} disabled={busy || !email.trim()} className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40"><Mail size={15}/>Magic Link</button></div>
-      </div>}
-      {message && <p className="mt-4 rounded-2xl border border-amber-300/10 bg-amber-300/[0.05] p-3 text-xs leading-5 text-amber-200">{message}</p>}
-    </div>
-  </div>;
-}
+import {useEffect,useState} from 'react';
+import {Mail,X} from 'lucide-react';
+import {getSupabaseClient} from '@/lib/supabase/client';
+import {useAuth} from '@/context/AuthContext';
+import {useI18n} from '@/lib/i18n-client';
+export function AuthModal(){const{user,authOpen,closeAuth,needsOnboarding,saveProfile}=useAuth();const{t}=useI18n();const supabase=getSupabaseClient();const[email,setEmail]=useState('');const[password,setPassword]=useState('');const[username,setUsername]=useState('');const[displayName,setDisplayName]=useState('');const[bio,setBio]=useState('');const[avatarUrl,setAvatarUrl]=useState('');const[language,setLanguage]=useState<'EN'|'JA'|'ES'|'ZH'>('EN');const[mode,setMode]=useState<'signin'|'signup'>('signin');const[message,setMessage]=useState('');const[busy,setBusy]=useState(false);
+useEffect(()=>{if(user){setDisplayName(String(user.user_metadata?.full_name??user.user_metadata?.name??''));setAvatarUrl(String(user.user_metadata?.avatar_url??user.user_metadata?.picture??''))}},[user]);if(!authOpen&&!needsOnboarding)return null;
+async function submit(){if(!supabase||!email.trim()||password.length<6)return;setBusy(true);setMessage('');const result=mode==='signin'?await supabase.auth.signInWithPassword({email:email.trim(),password}):await supabase.auth.signUp({email:email.trim(),password});if(result.error)setMessage(result.error.message);else if(mode==='signup'&&!result.data.session)setMessage('Account created. Check your email to confirm it.');else closeAuth();setBusy(false)}
+async function magic(){if(!supabase||!email.trim())return;setBusy(true);setMessage('');const{error}=await supabase.auth.signInWithOtp({email:email.trim(),options:{emailRedirectTo:`${window.location.origin}/auth/callback?next=/`}});setMessage(error?.message??t('auth.magic'));setBusy(false)}
+async function finish(){setBusy(true);setMessage('');try{await saveProfile({username,displayName,bio,avatarUrl,language});closeAuth()}catch(e){setMessage(e instanceof Error?e.message:'Could not save profile.')}finally{setBusy(false)}}
+const onboarding=Boolean(user&&needsOnboarding);return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md" onMouseDown={()=>!onboarding&&closeAuth()}><div role="dialog" aria-modal="true" className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-white/10 bg-zinc-900 p-6 shadow-2xl" onMouseDown={e=>e.stopPropagation()}><div className="mb-6 flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Patch!</p><h2 className="mt-1 text-xl font-bold">{onboarding?'Finish your profile':t('auth.title')}</h2></div>{!onboarding&&<button onClick={closeAuth} aria-label={t('auth.close')}><X size={18}/></button>}</div>{onboarding?<div className="space-y-4"><Field label={t('settings.username')} value={username} setValue={setUsername} placeholder="patchsmith"/><Field label={t('settings.displayName')} value={displayName} setValue={setDisplayName} placeholder="Your name"/><Field label={t('settings.bio')} value={bio} setValue={setBio} placeholder="Tell people about you"/><Field label={t('settings.avatar')} value={avatarUrl} setValue={setAvatarUrl} placeholder="https://…"/><select value={language} onChange={e=>setLanguage(e.target.value as typeof language)} className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm"><option value="EN">English</option><option value="JA">日本語</option><option value="ES">Español</option><option value="ZH">中文</option></select><button onClick={finish} disabled={busy} className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40">{busy?'Saving…':t('settings.save')}</button></div>:<div className="space-y-3"><input type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder={t('auth.email')} className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm"/><input type="password" autoComplete={mode==='signin'?'current-password':'new-password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder={t('auth.password')} minLength={6} className="w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm"/><button onClick={submit} disabled={busy||!email.trim()||password.length<6} className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40">{busy?'…':mode==='signin'?t('auth.signIn'):t('auth.signUp')}</button><div className="flex items-center gap-3 py-2 text-[10px] uppercase tracking-widest text-zinc-600"><span className="h-px flex-1 bg-white/5"/>{t('auth.or')}<span className="h-px flex-1 bg-white/5"/></div><div className="flex gap-2"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder={t('auth.email')} className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm"/><button onClick={magic} disabled={busy||!email.trim()} className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40"><Mail size={15}/>{t('auth.magic')}</button></div><button onClick={()=>{setMode(mode==='signin'?'signup':'signin');setMessage('')}} className="w-full py-2 text-xs font-semibold text-zinc-500 hover:text-white">{mode==='signin'?t('auth.switchSignup'):t('auth.switchSignin')}</button></div>}{message&&<p className="mt-4 rounded-2xl border border-amber-300/10 bg-amber-300/[0.05] p-3 text-xs leading-5 text-amber-200">{message}</p>}</div></div>}
+function Field({label,value,setValue,placeholder}:{label:string;value:string;setValue:(v:string)=>void;placeholder:string}){return <label className="block text-xs font-semibold text-zinc-400">{label}<input value={value} onChange={e=>setValue(e.target.value)} placeholder={placeholder} className="mt-1.5 w-full rounded-2xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm text-white outline-none"/></label>}

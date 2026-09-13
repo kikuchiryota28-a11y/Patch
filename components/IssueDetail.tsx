@@ -8,7 +8,7 @@ import { PatchCard } from '@/components/PatchCard';
 import { PatchModal } from '@/components/PatchModal';
 import { useIssues } from '@/context/IssueContext';
 
-function buildShareText(title: string, before: string, after: string, url: string) {
+function buildShareText(before: string, after: string, url: string) {
   return `Patch!\n\nBefore:\n“${before}”\n\nAfter:\n“${after}”\n\nCan you make it better? ${url}`;
 }
 
@@ -37,7 +37,9 @@ export function IssueDetail({ id }: { id: string }) {
     );
   }
 
-  async function shareToX() {
+  const currentIssue = issue;
+
+  function shareToX() {
     if (!bestPatch) {
       setShareLabel('Add a Patch first');
       window.setTimeout(() => setShareLabel('Share to X'), 1800);
@@ -45,7 +47,7 @@ export function IssueDetail({ id }: { id: string }) {
     }
 
     const url = window.location.href;
-    const text = buildShareText(issue.title, issue.body, bestPatch.text, url);
+    const text = buildShareText(currentIssue.body, bestPatch.text, url);
     const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     window.open(shareUrl, '_blank', 'noopener,noreferrer,width=720,height=640');
     setShareLabel('Opening X…');
@@ -54,7 +56,7 @@ export function IssueDetail({ id }: { id: string }) {
 
   async function copyShareText() {
     if (!bestPatch) return;
-    const text = buildShareText(issue.title, issue.body, bestPatch.text, window.location.href);
+    const text = buildShareText(currentIssue.body, bestPatch.text, window.location.href);
     await navigator.clipboard.writeText(text);
     setShareLabel('Copied');
     window.setTimeout(() => setShareLabel('Share to X'), 1600);
@@ -64,47 +66,33 @@ export function IssueDetail({ id }: { id: string }) {
     <main className="min-h-screen">
       <Header />
       <div className="mx-auto max-w-4xl px-4 pb-24 pt-8 md:px-6 md:pt-12">
-        <Link
-          href="/"
-          className="mb-8 inline-flex items-center gap-2 text-xs font-semibold text-zinc-500 hover:text-zinc-200"
-        >
+        <Link href="/" className="mb-8 inline-flex items-center gap-2 text-xs font-semibold text-zinc-500 hover:text-zinc-200">
           <ArrowLeft size={14} />Back to timeline
         </Link>
 
         <section className="rounded-3xl border border-white/8 bg-white/[0.025] p-6 shadow-glow md:p-8">
           <div className="mb-4 flex flex-wrap gap-2 text-xs text-zinc-500">
-            <span className="rounded-full border border-white/8 px-2.5 py-1">@{issue.author}</span>
+            <span className="rounded-full border border-white/8 px-2.5 py-1">@{currentIssue.author}</span>
             <span>•</span>
-            <span>{issue.createdAt}</span>
-            <span className="rounded-full border border-white/8 px-2.5 py-1">{issue.category}</span>
+            <span>{currentIssue.createdAt}</span>
+            <span className="rounded-full border border-white/8 px-2.5 py-1">{currentIssue.category}</span>
           </div>
-          <h1 className="max-w-3xl text-3xl font-black tracking-[-0.03em] md:text-5xl">{issue.title}</h1>
+          <h1 className="max-w-3xl text-3xl font-black tracking-[-0.03em] md:text-5xl">{currentIssue.title}</h1>
           <p className="mt-5 max-w-3xl whitespace-pre-line text-sm leading-7 text-zinc-400 md:text-base">
-            {issue.body}
+            {currentIssue.body}
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => setOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-zinc-200"
-            >
+            <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-zinc-200">
               <MessageSquarePlus size={16} />Submit a Patch
             </button>
-            <button
-              onClick={shareToX}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-bold text-zinc-100 transition hover:bg-white/[0.08]"
-            >
+            <button onClick={shareToX} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-bold text-zinc-100 transition hover:bg-white/[0.08]">
               <Share2 size={16} />{shareLabel}
             </button>
-            <button
-              onClick={copyShareText}
-              disabled={!bestPatch}
-              aria-label="Copy share text"
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2.5 text-xs font-semibold text-zinc-400 transition hover:bg-white/[0.08] hover:text-zinc-100 disabled:opacity-40"
-            >
+            <button onClick={copyShareText} disabled={!bestPatch} aria-label="Copy share text" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2.5 text-xs font-semibold text-zinc-400 transition hover:bg-white/[0.08] hover:text-zinc-100 disabled:opacity-40">
               <Copy size={14} />Copy
             </button>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/8 px-4 py-2.5 text-xs font-semibold text-zinc-400">
-              <Sparkles size={14} />{issue.patches.length} Patches
+              <Sparkles size={14} />{currentIssue.patches.length} Patches
             </div>
           </div>
         </section>
@@ -118,24 +106,15 @@ export function IssueDetail({ id }: { id: string }) {
             {dbEnabled && <span className="text-[11px] font-semibold text-emerald-300/80">Live database</span>}
           </div>
           <div className="space-y-8">
-            {issue.patches.length ? (
-              issue.patches.map((p) => (
-                <PatchCard
-                  key={p.id}
-                  patch={p}
-                  before={issue.body}
-                  onUpvote={() => upvotePatch(issue.id, p.id)}
-                />
-              ))
-            ) : (
-              <div className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-sm text-zinc-500">
-                No patches yet. Be the first.
-              </div>
+            {currentIssue.patches.length ? currentIssue.patches.map((p) => (
+              <PatchCard key={p.id} patch={p} before={currentIssue.body} onUpvote={() => upvotePatch(currentIssue.id, p.id)} />
+            )) : (
+              <div className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-sm text-zinc-500">No patches yet. Be the first.</div>
             )}
           </div>
         </section>
       </div>
-      <PatchModal issueId={issue.id} open={open} onClose={() => setOpen(false)} />
+      <PatchModal issueId={currentIssue.id} open={open} onClose={() => setOpen(false)} />
     </main>
   );
 }

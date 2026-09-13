@@ -44,7 +44,7 @@ export function NotificationCenter() {
   async function markAllRead() {
     setLoading(true);
     try {
-      await markAllNotificationsRead(items);
+      await markAllNotificationsRead();
       const now = new Date().toISOString();
       setItems((current) => current.map((item) => ({ ...item, readAt: item.readAt ?? now })));
     } finally {

@@ -21,3 +21,5 @@ npm run dev
 ```
 
 Open `http://localhost:3000`.
+
+<!-- Vercel deployment trigger: 2026-09-13 -->

@@ -25,6 +25,7 @@ type GeneratedPatch = {
 };
 
 function fallbackPatches(title: string, body: string): GeneratedPatch[] {
+  void title;
   return [
     {
       style: 'Business Formal',
@@ -39,6 +40,25 @@ function fallbackPatches(title: string, body: string): GeneratedPatch[] {
       text: `――運命の時計が刻を告げた。${body.trim()}。だが、まだ終わってはいない。闇の向こう側に、たった一つの答えが眠っている……。`,
     },
   ];
+}
+
+function extractResponseText(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const record = payload as { output_text?: unknown; output?: unknown };
+  if (typeof record.output_text === 'string' && record.output_text.trim()) return record.output_text.trim();
+  if (!Array.isArray(record.output)) return null;
+
+  for (const item of record.output) {
+    if (!item || typeof item !== 'object') continue;
+    const content = (item as { content?: unknown }).content;
+    if (!Array.isArray(content)) continue;
+    for (const part of content) {
+      if (!part || typeof part !== 'object') continue;
+      const text = (part as { text?: unknown }).text;
+      if (typeof text === 'string' && text.trim()) return text.trim();
+    }
+  }
+  return null;
 }
 
 export async function generateAutoPatches(title: string, body: string): Promise<GeneratedPatch[]> {
@@ -66,7 +86,6 @@ export async function generateAutoPatches(title: string, body: string): Promise<
     body: JSON.stringify({
       model,
       input: prompt,
-      temperature: 0.9,
       text: {
         format: {
           type: 'json_schema',
@@ -92,21 +111,24 @@ export async function generateAutoPatches(title: string, body: string): Promise<
     return fallbackPatches(title, body);
   }
 
-  const payload = (await response.json()) as { output_text?: string };
-  if (!payload.output_text) return fallbackPatches(title, body);
+  const payload = await response.json();
+  const responseText = extractResponseText(payload);
+  if (!responseText) return fallbackPatches(title, body);
 
   try {
-    const parsed = JSON.parse(payload.output_text) as {
-      businessFormal: string;
-      psychopathChaos: string;
-      chunnibyouPoetic: string;
+    const parsed = JSON.parse(responseText) as {
+      businessFormal?: string;
+      psychopathChaos?: string;
+      chunnibyouPoetic?: string;
     };
 
-    return [
-      { style: 'Business Formal', text: parsed.businessFormal.trim() },
-      { style: 'Psychopath / Chaos', text: parsed.psychopathChaos.trim() },
-      { style: 'Poetic / Chunnibyou', text: parsed.chunnibyouPoetic.trim() },
-    ].filter((patch) => patch.text.length > 0);
+    const patches: GeneratedPatch[] = [
+      { style: 'Business Formal', text: parsed.businessFormal?.trim() || '' },
+      { style: 'Psychopath / Chaos', text: parsed.psychopathChaos?.trim() || '' },
+      { style: 'Poetic / Chunnibyou', text: parsed.chunnibyouPoetic?.trim() || '' },
+    ];
+
+    return patches.every((patch) => patch.text.length > 0) ? patches : fallbackPatches(title, body);
   } catch (error) {
     console.error('OpenAI auto-patch JSON parsing failed:', error);
     return fallbackPatches(title, body);

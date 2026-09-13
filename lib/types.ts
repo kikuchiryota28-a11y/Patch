@@ -12,6 +12,7 @@ export interface PatchItem {
   author: string;
   votes: number;
   createdAt: string;
+  isAiGenerated?: boolean;
 }
 
 export interface Issue {

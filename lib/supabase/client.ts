@@ -32,8 +32,8 @@ type Database = {
       merge_patch:{Args:{p_issue_id:string;p_patch_id:string;p_actor_id:string};Returns:Database['public']['Tables']['issues']['Row'][]};
       mark_notification_read:{Args:{p_notification_id:string;p_actor_id:string};Returns:undefined};
       create_patch:{Args:{p_issue_id:string;p_patched_text:string;p_patch_type:string;p_actor_id:string;p_parent_patch_id?:string|null;p_is_ai_generated?:boolean};Returns:Database['public']['Tables']['patches']['Row'][]};
-      get_profile_stats:{Args:{p_actor_id:string};Returns:{issue_count:number;patch_count:number;merge_count:number;total_upvotes:number}[]>};
-      get_contribution_heatmap:{Args:{p_actor_id:string;p_since:string};Returns:{day:string;contributions:number}[]>};
+      get_profile_stats:{Args:{p_actor_id:string};Returns:{issue_count:number;patch_count:number;merge_count:number;total_upvotes:number}[]};
+      get_contribution_heatmap:{Args:{p_actor_id:string;p_since:string};Returns:{day:string;contributions:number}[]};
     };
     Enums:Record<string,never>;
     CompositeTypes:Record<string,never>;

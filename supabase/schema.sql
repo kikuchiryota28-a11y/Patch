@@ -1,4 +1,4 @@
--- Patch! Phase 2 schema
+-- Patch! Phase 2 + AI Auto-Patch schema
 create extension if not exists pgcrypto;
 
 create table if not exists public.issues (
@@ -14,11 +14,13 @@ create table if not exists public.patches (
   patched_text text not null,
   patch_type text not null default 'Casual',
   upvotes integer not null default 0 check (upvotes >= 0),
+  is_ai_generated boolean not null default false,
   created_at timestamptz not null default now()
 );
 
 alter table public.issues enable row level security;
 alter table public.patches enable row level security;
+alter table public.patches add column if not exists is_ai_generated boolean not null default false;
 
 create policy "Issues are publicly readable"
   on public.issues for select to anon, authenticated using (true);

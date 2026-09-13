@@ -1,61 +1,167 @@
 'use client';
 
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { Issue, PatchItem, PatchStyle } from '@/lib/types';
+import {
+  createIssue as persistIssue,
+  createPatch as persistPatch,
+  fetchIssues,
+  hasDatabaseConfig,
+  upvotePatch as persistUpvote,
+} from '@/lib/patchDb';
 import { initialIssues } from '@/lib/mockData';
 
-type NewIssue = { title: string; body: string };
+type NewIssue = { title: string; body: string; category?: string };
 type NewPatch = { issueId: string; text: string; style: PatchStyle };
 
 type IssueContextValue = {
   issues: Issue[];
-  addIssue: (input: NewIssue) => string;
-  addPatch: (input: NewPatch) => void;
+  isLoading: boolean;
+  dbEnabled: boolean;
+  error: string | null;
+  addIssue: (input: NewIssue) => Promise<string>;
+  addPatch: (input: NewPatch) => Promise<void>;
+  upvotePatch: (issueId: string, patchId: string) => Promise<void>;
   getIssue: (id: string) => Issue | undefined;
 };
 
 const IssueContext = createContext<IssueContextValue | null>(null);
 
-export function IssueProvider({ children }: { children: React.ReactNode }) {
-  const [issues, setIssues] = useState<Issue[]>(initialIssues);
+const VOTED_PATCHES_KEY = 'patch-voted-patches';
 
-  const addIssue = (input: NewIssue) => {
-    const id = `issue-${crypto.randomUUID()}`;
-    const issue: Issue = {
-      id,
-      title: input.title.trim(),
-      body: input.body.trim(),
-      author: 'you',
-      createdAt: 'just now',
-      patches: [],
+function readVotedPatches(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const value = JSON.parse(localStorage.getItem(VOTED_PATCHES_KEY) ?? '[]');
+    return new Set(Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeVotedPatches(value: Set<string>) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(VOTED_PATCHES_KEY, JSON.stringify([...value]));
+}
+
+function sortPatches(patches: PatchItem[]) {
+  return [...patches].sort(
+    (a, b) => b.votes - a.votes || Date.parse(b.createdAt) - Date.parse(a.createdAt),
+  );
+}
+
+export function IssueProvider({ children }: { children: React.ReactNode }) {
+  const dbEnabled = hasDatabaseConfig();
+  const [issues, setIssues] = useState<Issue[]>(initialIssues);
+  const [isLoading, setIsLoading] = useState(dbEnabled);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (!dbEnabled) {
+      setIsLoading(false);
+      return () => {
+        mounted = false;
+      };
+    }
+
+    setIsLoading(true);
+    fetchIssues()
+      .then((data) => {
+        if (!mounted) return;
+        setIssues(data);
+        setError(null);
+      })
+      .catch((reason: unknown) => {
+        if (!mounted) return;
+        console.error(reason);
+        setError('Supabase could not be loaded. Showing the local MVP data instead.');
+        setIssues(initialIssues);
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
     };
+  }, [dbEnabled]);
+
+  const addIssue = async (input: NewIssue) => {
+    setError(null);
+    const issue = await persistIssue(input);
     setIssues((current) => [issue, ...current]);
-    return id;
+    return issue.id;
   };
 
-  const addPatch = (input: NewPatch) => {
-    const patch: PatchItem = {
-      id: `patch-${crypto.randomUUID()}`,
-      text: input.text.trim(),
-      style: input.style,
-      author: 'you',
-      votes: 0,
-    };
+  const addPatch = async (input: NewPatch) => {
+    setError(null);
+    const patch = await persistPatch(input);
     setIssues((current) =>
       current.map((issue) =>
-        issue.id === input.issueId ? { ...issue, patches: [patch, ...issue.patches] } : issue,
+        issue.id === input.issueId
+          ? { ...issue, patches: sortPatches([patch, ...issue.patches]) }
+          : issue,
       ),
     );
+  };
+
+  const upvotePatch = async (issueId: string, patchId: string) => {
+    const voted = readVotedPatches();
+    if (voted.has(patchId)) return;
+
+    setError(null);
+
+    if (!dbEnabled) {
+      setIssues((current) =>
+        current.map((issue) =>
+          issue.id !== issueId
+            ? issue
+            : {
+                ...issue,
+                patches: sortPatches(
+                  issue.patches.map((patch) =>
+                    patch.id === patchId ? { ...patch, votes: patch.votes + 1 } : patch,
+                  ),
+                ),
+              },
+        ),
+      );
+      voted.add(patchId);
+      writeVotedPatches(voted);
+      return;
+    }
+
+    const updatedPatch = await persistUpvote(patchId);
+    setIssues((current) =>
+      current.map((issue) =>
+        issue.id !== issueId
+          ? issue
+          : {
+              ...issue,
+              patches: sortPatches(
+                issue.patches.map((patch) => (patch.id === patchId ? updatedPatch : patch)),
+              ),
+            },
+      ),
+    );
+    voted.add(patchId);
+    writeVotedPatches(voted);
   };
 
   const value = useMemo<IssueContextValue>(
     () => ({
       issues,
+      isLoading,
+      dbEnabled,
+      error,
       addIssue,
       addPatch,
+      upvotePatch,
       getIssue: (id) => issues.find((issue) => issue.id === id),
     }),
-    [issues],
+    [issues, isLoading, dbEnabled, error],
   );
 
   return <IssueContext.Provider value={value}>{children}</IssueContext.Provider>;

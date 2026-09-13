@@ -8,8 +8,13 @@ import { PatchCard } from '@/components/PatchCard';
 import { PatchModal } from '@/components/PatchModal';
 import { useIssues } from '@/context/IssueContext';
 
+function clip(value: string, max: number) {
+  const clean = value.replace(/\s+/g, ' ').trim();
+  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
+}
+
 function buildShareText(before: string, after: string, url: string) {
-  return `Patch!\n\nBefore:\n“${before}”\n\nAfter:\n“${after}”\n\nCan you make it better? ${url}`;
+  return `Patch!\n\nBefore: ${clip(before, 72)}\nAfter: ${clip(after, 100)}\n\nPatch this yourself → ${url}`;
 }
 
 export function IssueDetail({ id }: { id: string }) {
@@ -29,9 +34,7 @@ export function IssueDetail({ id }: { id: string }) {
         <Header />
         <div className="mx-auto max-w-3xl px-4 py-20 text-center">
           <h1 className="text-2xl font-bold">Issue not found</h1>
-          <Link href="/" className="mt-6 inline-block text-sm font-semibold text-indigo-300">
-            Back home →
-          </Link>
+          <Link href="/" className="mt-6 inline-block text-sm font-semibold text-indigo-300">Back home →</Link>
         </div>
       </main>
     );
@@ -46,9 +49,8 @@ export function IssueDetail({ id }: { id: string }) {
       return;
     }
 
-    const url = window.location.href;
-    const text = buildShareText(currentIssue.body, bestPatch.text, url);
-    const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    const text = buildShareText(currentIssue.body, bestPatch.text, window.location.href);
+    const shareUrl = `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
     window.open(shareUrl, '_blank', 'noopener,noreferrer,width=720,height=640');
     setShareLabel('Opening X…');
     window.setTimeout(() => setShareLabel('Share to X'), 1600);
@@ -69,7 +71,6 @@ export function IssueDetail({ id }: { id: string }) {
         <Link href="/" className="mb-8 inline-flex items-center gap-2 text-xs font-semibold text-zinc-500 hover:text-zinc-200">
           <ArrowLeft size={14} />Back to timeline
         </Link>
-
         <section className="rounded-3xl border border-white/8 bg-white/[0.025] p-6 shadow-glow md:p-8">
           <div className="mb-4 flex flex-wrap gap-2 text-xs text-zinc-500">
             <span className="rounded-full border border-white/8 px-2.5 py-1">@{currentIssue.author}</span>
@@ -78,9 +79,7 @@ export function IssueDetail({ id }: { id: string }) {
             <span className="rounded-full border border-white/8 px-2.5 py-1">{currentIssue.category}</span>
           </div>
           <h1 className="max-w-3xl text-3xl font-black tracking-[-0.03em] md:text-5xl">{currentIssue.title}</h1>
-          <p className="mt-5 max-w-3xl whitespace-pre-line text-sm leading-7 text-zinc-400 md:text-base">
-            {currentIssue.body}
-          </p>
+          <p className="mt-5 max-w-3xl whitespace-pre-line text-sm leading-7 text-zinc-400 md:text-base">{currentIssue.body}</p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-zinc-200">
               <MessageSquarePlus size={16} />Submit a Patch
@@ -96,7 +95,6 @@ export function IssueDetail({ id }: { id: string }) {
             </div>
           </div>
         </section>
-
         <section className="mt-10">
           <div className="mb-5 flex items-end justify-between gap-4">
             <div>

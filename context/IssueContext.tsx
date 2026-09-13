@@ -3,7 +3,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { Issue, PatchItem, PatchStyle } from '@/lib/types';
 import {
-  createIssue as persistIssue,
   createPatch as persistPatch,
   fetchIssues,
   hasDatabaseConfig,
@@ -26,7 +25,6 @@ type IssueContextValue = {
 };
 
 const IssueContext = createContext<IssueContextValue | null>(null);
-
 const VOTED_PATCHES_KEY = 'patch-voted-patches';
 
 function readVotedPatches(): Set<string> {
@@ -45,9 +43,7 @@ function writeVotedPatches(value: Set<string>) {
 }
 
 function sortPatches(patches: PatchItem[]) {
-  return [...patches].sort(
-    (a, b) => b.votes - a.votes || Date.parse(b.createdAt) - Date.parse(a.createdAt),
-  );
+  return [...patches].sort((a, b) => b.votes - a.votes || Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
 
 export function IssueProvider({ children }: { children: React.ReactNode }) {
@@ -58,14 +54,12 @@ export function IssueProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-
     if (!dbEnabled) {
       setIsLoading(false);
       return () => {
         mounted = false;
       };
     }
-
     setIsLoading(true);
     fetchIssues()
       .then((data) => {
@@ -82,7 +76,6 @@ export function IssueProvider({ children }: { children: React.ReactNode }) {
       .finally(() => {
         if (mounted) setIsLoading(false);
       });
-
     return () => {
       mounted = false;
     };
@@ -90,9 +83,19 @@ export function IssueProvider({ children }: { children: React.ReactNode }) {
 
   const addIssue = async (input: NewIssue) => {
     setError(null);
-    const issue = await persistIssue(input);
-    setIssues((current) => [issue, ...current]);
-    return issue.id;
+    const response = await fetch('/api/issues', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+
+    const payload = (await response.json()) as { issue?: Issue; error?: string };
+    if (!response.ok || !payload.issue) {
+      throw new Error(payload.error || 'Could not create the Issue.');
+    }
+
+    setIssues((current) => [payload.issue!, ...current]);
+    return payload.issue.id;
   };
 
   const addPatch = async (input: NewPatch) => {
@@ -100,9 +103,7 @@ export function IssueProvider({ children }: { children: React.ReactNode }) {
     const patch = await persistPatch(input);
     setIssues((current) =>
       current.map((issue) =>
-        issue.id === input.issueId
-          ? { ...issue, patches: sortPatches([patch, ...issue.patches]) }
-          : issue,
+        issue.id === input.issueId ? { ...issue, patches: sortPatches([patch, ...issue.patches]) } : issue,
       ),
     );
   };
@@ -110,7 +111,6 @@ export function IssueProvider({ children }: { children: React.ReactNode }) {
   const upvotePatch = async (issueId: string, patchId: string) => {
     const voted = readVotedPatches();
     if (voted.has(patchId)) return;
-
     setError(null);
 
     if (!dbEnabled) {
@@ -151,16 +151,7 @@ export function IssueProvider({ children }: { children: React.ReactNode }) {
   };
 
   const value = useMemo<IssueContextValue>(
-    () => ({
-      issues,
-      isLoading,
-      dbEnabled,
-      error,
-      addIssue,
-      addPatch,
-      upvotePatch,
-      getIssue: (id) => issues.find((issue) => issue.id === id),
-    }),
+    () => ({ issues, isLoading, dbEnabled, error, addIssue, addPatch, upvotePatch, getIssue: (id) => issues.find((issue) => issue.id === id) }),
     [issues, isLoading, dbEnabled, error],
   );
 

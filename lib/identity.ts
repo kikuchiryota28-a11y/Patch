@@ -1,5 +1,10 @@
 const ACTOR_KEY = 'patch-actor-id';
 
+export function setAuthenticatedActorId(actorId: string | null) {
+  if (typeof window === 'undefined') return;
+  if (actorId) window.localStorage.setItem(ACTOR_KEY, actorId);
+  else window.localStorage.removeItem(ACTOR_KEY);
+}
 export function getActorId() {
   if (typeof window === 'undefined') return 'server-anonymous';
   const existing = window.localStorage.getItem(ACTOR_KEY);
@@ -8,7 +13,6 @@ export function getActorId() {
   window.localStorage.setItem(ACTOR_KEY, id);
   return id;
 }
-
 export function getActorLabel(actorId: string) {
   if (actorId === 'ai') return 'Patch! AI';
   const suffix = actorId.replace(/^actor-/, '').slice(-4).toUpperCase();

@@ -8,7 +8,30 @@ export const runtime = 'nodejs';
 function buildLocalIssue(title: string, body: string, category: string, ownerActorId: string, generated: Awaited<ReturnType<typeof generateAutoPatches>>): Issue {
   const now = new Date().toISOString();
   const issueId = `issue-${crypto.randomUUID()}`;
-  return { id: issueId, title, body, author: 'you', ownerActorId, createdAt: now, category, patches: generated.map((patch) => ({ id: `patch-${crypto.randomUUID()}`, text: patch.text, style: patch.style, author: 'Patch! AI', authorActorId: 'ai', votes: 0, createdAt: now, isAiGenerated: true } satisfies PatchItem)) };
+  return {
+    id: issueId,
+    title,
+    body,
+    author: 'you',
+    ownerActorId,
+    createdAt: now,
+    category,
+    patches: generated.map((patch) => ({
+      id: `patch-${crypto.randomUUID()}`,
+      issueId,
+      text: patch.text,
+      style: patch.style,
+      author: 'Patch! AI',
+      authorActorId: 'ai',
+      votes: 0,
+      createdAt: now,
+      parentPatchId: null,
+      rootPatchId: undefined,
+      depth: 0,
+      isAiGenerated: true,
+      isMerged: false,
+    } satisfies PatchItem)),
+  };
 }
 
 export async function POST(request: Request) {
@@ -32,7 +55,32 @@ export async function POST(request: Request) {
     const { data: insertedPatches, error: patchError } = await supabase.from('patches').insert(patchRows).select('id, issue_id, patched_text, patch_type, upvotes, author_actor_id, is_ai_generated, created_at');
     if (patchError) { await supabase.from('issues').delete().eq('id', issueRow.id); throw patchError; }
 
-    const issue: Issue = { id: issueRow.id, title, body, author: 'you', ownerActorId: issueRow.owner_actor_id, createdAt: issueRow.created_at, category: issueRow.category, mergedPatchId: issueRow.merged_patch_id, mergedAt: issueRow.merged_at, patches: (insertedPatches ?? []).map((patch) => ({ id: patch.id, text: patch.patched_text, style: patch.patch_type as Issue['patches'][number]['style'], author: 'Patch! AI', authorActorId: 'ai', votes: patch.upvotes, createdAt: patch.created_at, isAiGenerated: Boolean(patch.is_ai_generated) })).sort((a,b)=>b.votes-a.votes) };
+    const issue: Issue = {
+      id: issueRow.id,
+      title,
+      body,
+      author: 'you',
+      ownerActorId: issueRow.owner_actor_id,
+      createdAt: issueRow.created_at,
+      category: issueRow.category,
+      mergedPatchId: issueRow.merged_patch_id,
+      mergedAt: issueRow.merged_at,
+      patches: (insertedPatches ?? []).map((patch) => ({
+        id: patch.id,
+        issueId: patch.issue_id,
+        text: patch.patched_text,
+        style: patch.patch_type as Issue['patches'][number]['style'],
+        author: 'Patch! AI',
+        authorActorId: 'ai',
+        votes: patch.upvotes,
+        createdAt: patch.created_at,
+        parentPatchId: null,
+        rootPatchId: undefined,
+        depth: 0,
+        isAiGenerated: Boolean(patch.is_ai_generated),
+        isMerged: false,
+      })).sort((a, b) => b.votes - a.votes),
+    };
     return NextResponse.json({ issue, source: 'supabase', aiModel: process.env.OPENAI_API_KEY ? (process.env.OPENAI_MODEL || 'gpt-5.6-luna') : 'fallback' }, { status: 201 });
   } catch (error) {
     console.error('Issue creation failed:', error);

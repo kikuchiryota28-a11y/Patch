@@ -1,65 +1,23 @@
-import type { Issue, PatchItem, PatchStyle } from '@/lib/types';
+import type { Issue, NotificationItem, PatchItem, PatchStyle } from '@/lib/types';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { getActorId, getActorLabel } from '@/lib/identity';
 import { initialIssues } from '@/lib/mockData';
 
-type IssueRow = { id: string; content: string; category: string; created_at: string };
-type PatchRow = {
-  id: string;
-  issue_id: string;
-  patched_text: string;
-  patch_type: string;
-  upvotes: number;
-  created_at: string;
-  is_ai_generated?: boolean;
-};
+type IssueRow = { id: string; content: string; category: string; owner_actor_id: string; merged_patch_id: string | null; merged_at: string | null; created_at: string };
+type PatchRow = { id: string; issue_id: string; patched_text: string; patch_type: string; upvotes: number; author_actor_id: string; is_ai_generated: boolean; created_at: string };
 type CreateIssueInput = { title: string; body: string; category?: string };
 type CreatePatchInput = { issueId: string; text: string; style: PatchStyle; isAiGenerated?: boolean };
 
 const patchStyles: PatchStyle[] = ['Business Formal','Psychopath / Chaos','Poetic / Chunnibyou','Casual','Corporate Passive-Aggressive'];
 function isPatchStyle(value: string): value is PatchStyle { return patchStyles.includes(value as PatchStyle); }
-function mapPatch(row: PatchRow): PatchItem {
-  return {
-    id: row.id,
-    text: row.patched_text,
-    style: isPatchStyle(row.patch_type) ? row.patch_type : 'Casual',
-    author: row.is_ai_generated ? 'Patch! AI' : 'community',
-    votes: row.upvotes,
-    createdAt: row.created_at,
-    isAiGenerated: Boolean(row.is_ai_generated),
-  };
-}
-function mapIssue(row: IssueRow, patches: PatchRow[]): Issue {
-  const [firstLine, ...rest] = row.content.split('\n');
-  return { id: row.id, title: firstLine?.trim() || 'Untitled Issue', body: rest.join('\n').trim() || firstLine?.trim() || '', author: 'community', createdAt: row.created_at, category: row.category, patches: patches.filter((patch) => patch.issue_id === row.id).sort((a,b) => b.upvotes-a.upvotes || Date.parse(b.created_at)-Date.parse(a.created_at)).map(mapPatch) };
-}
-export function hasDatabaseConfig() { return getSupabaseClient() !== null; }
-export async function fetchIssues(): Promise<Issue[]> {
-  const supabase = getSupabaseClient(); if (!supabase) return initialIssues;
-  const [{ data: issueRows, error: issueError }, { data: patchRows, error: patchError }] = await Promise.all([
-    supabase.from('issues').select('id, content, category, created_at').order('created_at', { ascending: false }),
-    supabase.from('patches').select('id, issue_id, patched_text, patch_type, upvotes, created_at, is_ai_generated').order('upvotes', { ascending: false }).order('created_at', { ascending: false }),
-  ]);
-  if (issueError) throw issueError; if (patchError) throw patchError;
-  return (issueRows as IssueRow[]).map((row) => mapIssue(row, (patchRows ?? []) as PatchRow[]));
-}
-export async function createIssue(input: CreateIssueInput): Promise<Issue> {
-  const supabase = getSupabaseClient();
-  if (!supabase) return { id: `issue-${crypto.randomUUID()}`, title: input.title.trim(), body: input.body.trim(), author: 'you', createdAt: new Date().toISOString(), category: input.category ?? 'General', patches: [] };
-  const { data, error } = await supabase.from('issues').insert({ content: `${input.title.trim()}\n${input.body.trim()}`, category: input.category?.trim() || 'General' }).select('id, content, category, created_at').single();
-  if (error) throw error; return mapIssue(data as IssueRow, []);
-}
-export async function createPatch(input: CreatePatchInput): Promise<PatchItem> {
-  const supabase = getSupabaseClient();
-  if (!supabase) return { id: `patch-${crypto.randomUUID()}`, text: input.text.trim(), style: input.style, author: 'you', votes: 0, createdAt: new Date().toISOString(), isAiGenerated: Boolean(input.isAiGenerated) };
-  const { data, error } = await supabase.from('patches').insert({ issue_id: input.issueId, patched_text: input.text.trim(), patch_type: input.style, upvotes: 0, is_ai_generated: Boolean(input.isAiGenerated) }).select('id, issue_id, patched_text, patch_type, upvotes, created_at, is_ai_generated').single();
-  if (error) throw error; return mapPatch(data as PatchRow);
-}
-export async function upvotePatch(patchId: string): Promise<PatchItem> {
-  const supabase = getSupabaseClient();
-  if (!supabase) throw new Error('Supabase is not configured. Local voting is handled in the UI state.');
-  const { data, error } = await supabase.rpc('increment_patch_upvotes', { p_patch_id: patchId });
-  if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row) throw new Error('Patch was not found.');
-  return mapPatch(row as PatchRow);
-}
+function mapPatch(row: PatchRow, issue?: IssueRow): PatchItem { return { id: row.id, text: row.patched_text, style: isPatchStyle(row.patch_type) ? row.patch_type : 'Casual', author: row.author_actor_id === 'ai' ? 'Patch! AI' : getActorLabel(row.author_actor_id), authorActorId: row.author_actor_id, votes: row.upvotes, createdAt: row.created_at, isAiGenerated: row.is_ai_generated, isMerged: issue?.merged_patch_id === row.id }; }
+function mapIssue(row: IssueRow, patches: PatchRow[]): Issue { const [firstLine,...rest]=row.content.split('\n'); return { id:row.id,title:firstLine?.trim()||'Untitled Issue',body:rest.join('\n').trim()||firstLine?.trim()||'',author:row.owner_actor_id===getActorId()?'you':getActorLabel(row.owner_actor_id),ownerActorId:row.owner_actor_id,createdAt:row.created_at,category:row.category,mergedPatchId:row.merged_patch_id,mergedAt:row.merged_at,patches:patches.filter((p)=>p.issue_id===row.id).sort((a,b)=>b.upvotes-a.upvotes||Date.parse(b.created_at)-Date.parse(a.created_at)).map((p)=>mapPatch(p,row))}; }
+export function hasDatabaseConfig(){return getSupabaseClient()!==null;}
+export async function fetchIssues():Promise<Issue[]>{const supabase=getSupabaseClient();if(!supabase)return initialIssues;const [{data:issueRows,error:issueError},{data:patchRows,error:patchError}]=await Promise.all([supabase.from('issues').select('id, content, category, owner_actor_id, merged_patch_id, merged_at, created_at').order('created_at',{ascending:false}),supabase.from('patches').select('id, issue_id, patched_text, patch_type, upvotes, author_actor_id, is_ai_generated, created_at').order('upvotes',{ascending:false}).order('created_at',{ascending:false})]);if(issueError)throw issueError;if(patchError)throw patchError;return (issueRows??[]).map((row)=>mapIssue(row as IssueRow,(patchRows??[]) as PatchRow[]));}
+export async function createIssue(input:CreateIssueInput):Promise<Issue>{const supabase=getSupabaseClient();if(!supabase)return{id:`issue-${crypto.randomUUID()}`,title:input.title.trim(),body:input.body.trim(),author:'you',ownerActorId:getActorId(),createdAt:new Date().toISOString(),category:input.category??'General',patches:[]};const{data,error}=await supabase.from('issues').insert({content:`${input.title.trim()}\n${input.body.trim()}`,category:input.category?.trim()||'General',owner_actor_id:getActorId()}).select('id, content, category, owner_actor_id, merged_patch_id, merged_at, created_at').single();if(error)throw error;return mapIssue(data as IssueRow,[]);}
+export async function createPatch(input:CreatePatchInput):Promise<PatchItem>{const supabase=getSupabaseClient();const actorId=getActorId();if(!supabase)return{id:`patch-${crypto.randomUUID()}`,text:input.text.trim(),style:input.style,author:'you',authorActorId:actorId,votes:0,createdAt:new Date().toISOString(),isAiGenerated:Boolean(input.isAiGenerated)};const{data,error}=await supabase.from('patches').insert({issue_id:input.issueId,patched_text:input.text.trim(),patch_type:input.style,upvotes:0,author_actor_id:actorId,is_ai_generated:Boolean(input.isAiGenerated)}).select('id, issue_id, patched_text, patch_type, upvotes, author_actor_id, is_ai_generated, created_at').single();if(error)throw error;return mapPatch(data as PatchRow);}
+export async function upvotePatch(patchId:string):Promise<PatchItem>{const supabase=getSupabaseClient();if(!supabase)throw new Error('Supabase is not configured.');const{data,error}=await supabase.rpc('increment_patch_upvotes',{p_patch_id:patchId,p_actor_id:getActorId()});if(error)throw error;const row=Array.isArray(data)?data[0]:data;if(!row)throw new Error('Patch was not found.');return mapPatch(row as PatchRow);}
+export async function mergePatch(issueId:string,patchId:string):Promise<Issue>{const supabase=getSupabaseClient();if(!supabase)throw new Error('Supabase is not configured.');const{data,error}=await supabase.rpc('merge_patch',{p_issue_id:issueId,p_patch_id:patchId,p_actor_id:getActorId()});if(error)throw error;const row=Array.isArray(data)?data[0]:data;if(!row)throw new Error('Issue could not be merged.');return mapIssue(row as IssueRow,[]);}
+export async function fetchNotifications():Promise<NotificationItem[]>{const supabase=getSupabaseClient();if(!supabase)return[];const{data,error}=await supabase.from('notifications').select('id, recipient_actor_id, type, title, message, issue_id, patch_id, created_at, read_at').eq('recipient_actor_id',getActorId()).order('created_at',{ascending:false}).limit(30);if(error)throw error;return(data??[]).map((n)=>({id:n.id,type:n.type as NotificationItem['type'],title:n.title,message:n.message,issueId:n.issue_id,patchId:n.patch_id,createdAt:n.created_at,readAt:n.read_at}));}
+export async function markNotificationRead(id:string){const supabase=getSupabaseClient();if(!supabase)return;const{error}=await supabase.rpc('mark_notification_read',{p_notification_id:id,p_actor_id:getActorId()});if(error)throw error;}
+export async function fetchRanking(){const supabase=getSupabaseClient();if(!supabase)return{patches:[],creators:[]};const{data,error}=await supabase.from('patches').select('id, issue_id, patched_text, patch_type, upvotes, author_actor_id, is_ai_generated, created_at').order('upvotes',{ascending:false}).order('created_at',{ascending:false}).limit(50);if(error)throw error;const rows=(data??[]) as PatchRow[];const issueIds=[...new Set(rows.map((r)=>r.issue_id))];const{data:issues,error:issueError}=issueIds.length?await supabase.from('issues').select('id, content, category, owner_actor_id, merged_patch_id, merged_at, created_at').in('id',issueIds):{data:[],error:null};if(issueError)throw issueError;const issueMap=new Map((issues??[]).map((i)=>[i.id,i as IssueRow]));const patches=rows.map((r)=>({patch:mapPatch(r,issueMap.get(r.issue_id)),issueId:r.issue_id,issueTitle:issueMap.get(r.issue_id)?.content.split('\n')[0]??'Issue'}));const totals=new Map<string,number>();for(const r of rows)totals.set(r.author_actor_id,(totals.get(r.author_actor_id)??0)+r.upvotes);const creators=[...totals.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10).map(([actorId,totalUpvotes])=>({actorId,label:getActorLabel(actorId),totalUpvotes}));return{patches,creators};}

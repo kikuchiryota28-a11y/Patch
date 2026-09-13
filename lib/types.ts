@@ -11,6 +11,7 @@ export interface PatchItem {
   style: PatchStyle;
   author: string;
   votes: number;
+  createdAt: string;
 }
 
 export interface Issue {
@@ -19,5 +20,6 @@ export interface Issue {
   body: string;
   author: string;
   createdAt: string;
+  category: string;
   patches: PatchItem[];
 }

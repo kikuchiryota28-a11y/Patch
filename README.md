@@ -22,4 +22,4 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-<!-- Vercel deployment trigger: 2026-09-13 -->
+<!-- Vercel deployment trigger: 2026-09-14 SSR cookie API fix -->

@@ -11,8 +11,8 @@ type DbLanguage='EN'|'JA'|'ES'|'ZH';
 type AuthContextValue={user:User|null;profile:Profile|null;loading:boolean;authOpen:boolean;openAuth:()=>void;closeAuth:()=>void;profileComplete:boolean;needsOnboarding:boolean;refreshProfile:()=>Promise<void>;saveProfile:(input:Profile)=>Promise<void>};
 const C=createContext<AuthContextValue|null>(null);
 
-const TO_DB_LANGUAGE:Record<Locale,DbLanguage>={en:'EN',ja:'JA',es:'ES',zh:'ZH'};
-const FROM_DB_LANGUAGE:Record<DbLanguage,Locale>={EN:'en',JA:'ja',ES:'es',ZH:'zh'};
+const TO_DB_LANGUAGE={en:'EN',ja:'JA',es:'ES',zh:'ZH'} satisfies Record<Locale,DbLanguage>;
+const FROM_DB_LANGUAGE={EN:'en',JA:'ja',ES:'es',ZH:'zh'} satisfies Record<DbLanguage,Locale>;
 
 function toDbLanguage(locale:Locale):DbLanguage{return TO_DB_LANGUAGE[locale]}
 function fromDbLanguage(value:unknown):Locale{return value==='JA'||value==='ES'||value==='ZH'?FROM_DB_LANGUAGE[value]:'en'}

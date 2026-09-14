@@ -26,10 +26,10 @@ export function AuthModal(){
   setBusy(true);
   try{
    const result=mode==='signin'?await signIn(email,password):await signUp(email,password,displayName);
-   if(result.error){setError(mode==='signin'?d.invalidCredentials:d.missingFields);return}
+   if(result.error){setError(mode==='signin'?d.invalidCredentials:d.signUpError);return}
    if(result.message==='CONFIRM_EMAIL'){setInfo(d.confirmEmail);return}
    closeAuth();
-  }catch{setError(mode==='signin'?d.invalidCredentials:d.missingFields)}finally{setBusy(false)}
+  }catch{setError(mode==='signin'?d.invalidCredentials:d.signUpError)}finally{setBusy(false)}
  }
  return <div className="fixed inset-0 z-[60] grid place-items-center bg-black/80 p-4 backdrop-blur-xl" onMouseDown={closeAuth}>
   <div role="dialog" aria-modal="true" aria-labelledby="patch-auth-title" className="w-full max-w-md rounded-[28px] border border-white/10 bg-zinc-900/95 p-6 shadow-[0_30px_100px_rgba(0,0,0,.65)]" onMouseDown={e=>e.stopPropagation()}>

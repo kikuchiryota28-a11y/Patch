@@ -13,3 +13,15 @@ create policy "Profiles are insertable" on public.profiles for insert to authent
 create policy "Profiles are updateable" on public.profiles for update to authenticated using((select auth.uid())::text=actor_id) with check((select auth.uid())::text=actor_id);
 revoke insert,update on public.profiles from anon;
 grant insert,update on public.profiles to authenticated;
+
+-- Restore the original notification hook that existed in the application schema.
+create or replace function public.notify_patch_submission()
+returns trigger
+language plpgsql
+security invoker
+set search_path=public
+as $$
+begin
+  return new;
+end;
+$$;

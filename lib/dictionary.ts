@@ -1,63 +1,34 @@
 export type Language = 'en' | 'ja';
 
-export const dictionary = {
+export type Dictionary = {
+  nav: { home: string; hall: string; gacha: string; profile: string; settings: string; post: string; signIn: string; account: string; notifications: string };
+  auth: { title: string; email: string; password: string; displayName: string; username: string; signIn: string; signUp: string; switchToSignUp: string; switchToSignIn: string; close: string; signingIn: string; signingUp: string; invalidCredentials: string; confirmEmail: string; missingFields: string; passwordLength: string };
+  home: { live: string; title: string; subtitle: string; intro: string; loading: string; empty: string; emptyHint: string; seeRewrites: string; patch: string; patches: string; homeBack: string };
+  issue: { submitPatch: string; shareX: string; copy: string; report: string; patchTree: string; oneMessage: string; rePatch: string; issueNotFound: string; backHome: string; addPatchFirst: string; openingX: string; copied: string; officialMerged: string; reportReason: string; reportRecorded: string; reportFailed: string };
+  profile: { history: string; empty: string; contributions: string; issues: string; patches: string; upvotes: string; merges: string; edit: string };
+  settings: { title: string; description: string; profileSettings: string; language: string; displayName: string; avatarUrl: string; username: string; email: string; saveChanges: string; saved: string; signInPrompt: string; signOut: string; signingOut: string; appSettings: string; appLanguageDescription: string; saveError: string; yourName: string; bio: string; bioPlaceholder: string; clearCache: string; systemData: string; systemDataDescription: string; appInfo: string; terms: string; privacy: string; version: string; viewProfile: string; publicIdentity: string; accountActions: string; accountActionsDescription: string };
+  common: { close: string; cancel: string; save: string; loading: string; error: string };
+};
+
+export const dictionary: Record<Language, Dictionary> = {
   en: {
-    nav: { home: 'Home', hall: 'Hall of Fame', gacha: 'Gacha', profile: 'Profile', settings: 'Settings', post: 'Post Issue', signIn: 'Sign in', account: 'Account', notifications: 'Notifications' },
-    auth: {
-      title: 'Welcome to Patch!', email: 'Email', password: 'Password', displayName: 'Display name', username: 'Username',
-      signIn: 'Sign in', signUp: 'Create account', switchToSignUp: 'Need an account? Create one', switchToSignIn: 'Already have an account? Sign in',
-      close: 'Close', signingIn: 'Signing in…', signingUp: 'Creating account…', invalidCredentials: 'Incorrect email or password.',
-      confirmEmail: 'Account created. Check your email to confirm your address before signing in.',
-      missingFields: 'Please complete all required fields.', passwordLength: 'Password must be at least 6 characters.'
-    },
-    home: {
-      live: 'Live timeline', title: 'Your awkward messages.', subtitle: 'Patched by the internet.',
-      intro: 'Post a real-life communication problem. People rewrite it into something sharper, funnier, more formal, or completely unhinged.',
-      loading: 'Loading the feed…', empty: 'No Issues yet.', emptyHint: 'Be the first person to post something the internet can patch.',
-      seeRewrites: 'See rewrites', patch: 'Patch', patches: 'Patches'
-    },
-    issue: { submitPatch: 'Submit a Patch', shareX: 'Share to X', copy: 'Copy', report: 'Report', patchTree: 'PATCH TREE', patchTreeJa: 'Patch Tree', oneMessage: 'One message. Infinite rewrites.', rePatch: 'Re-Patch' },
-    profile: { history: 'Patch history', empty: 'No patches yet.', contributions: 'Contributions', issues: 'Issues', patches: 'Patches', upvotes: 'Upvotes', merges: 'Merges', edit: 'Edit Profile' },
-    settings: {
-      title: 'Settings', description: 'Manage your profile, language, and account settings.', profileSettings: 'Profile Settings', language: 'Language',
-      displayName: 'Display Name', avatarUrl: 'Avatar URL', username: 'Username', email: 'Email', saveChanges: 'Save Changes', saved: 'Saved',
-      signInPrompt: 'Sign in to edit your profile, save patches, and contribute.', signOut: 'Sign Out', signingOut: 'Signing out…', appSettings: 'App Settings / Language',
-      appLanguageDescription: 'Choose the language used across Patch!', saveError: 'Could not save your settings.', yourName: 'Your name', bio: 'Bio', bioPlaceholder: 'Tell people about you',
-      clearCache: 'Clear local cache', systemData: 'System & Data', systemDataDescription: 'Reset local voting and temporary device state.', appInfo: 'App Information',
-      terms: 'Terms of Service', privacy: 'Privacy Policy', version: 'Version', viewProfile: 'View profile', publicIdentity: 'Your public Patch! identity',
-      accountActions: 'Account Actions', accountActionsDescription: 'Sign out on this device or switch to another account.'
-    },
-    common: { close: 'Close', cancel: 'Cancel', save: 'Save', loading: 'Loading…', error: 'Something went wrong.' }
+    nav: { home:'Home', hall:'Hall of Fame', gacha:'Gacha', profile:'Profile', settings:'Settings', post:'Post Issue', signIn:'Sign in', account:'Account', notifications:'Notifications' },
+    auth: { title:'Welcome to Patch!', email:'Email', password:'Password', displayName:'Display name', username:'Username', signIn:'Sign in', signUp:'Create account', switchToSignUp:'Need an account? Create one', switchToSignIn:'Already have an account? Sign in', close:'Close', signingIn:'Signing in…', signingUp:'Creating account…', invalidCredentials:'Incorrect email or password.', confirmEmail:'Account created. Check your email to confirm your address before signing in.', missingFields:'Please complete all required fields.', passwordLength:'Password must be at least 6 characters.' },
+    home: { live:'Live timeline', title:'Your awkward messages.', subtitle:'Patched by the internet.', intro:'Post a real-life communication problem. People rewrite it into something sharper, funnier, more formal, or completely unhinged.', loading:'Loading the feed…', empty:'No Issues yet.', emptyHint:'Be the first person to post something the internet can patch.', seeRewrites:'See rewrites', patch:'Patch', patches:'Patches', homeBack:'Back to timeline' },
+    issue: { submitPatch:'Submit a Patch', shareX:'Share to X', copy:'Copy', report:'Report', patchTree:'PATCH TREE', oneMessage:'One message. Infinite rewrites.', rePatch:'Re-Patch', issueNotFound:'Issue not found', backHome:'Back home →', addPatchFirst:'Add a Patch first', openingX:'Opening X…', copied:'Copied', officialMerged:'Official merged', reportReason:'Report reason', reportRecorded:'Thanks. Your report was recorded.', reportFailed:'Could not report this Issue.' },
+    profile: { history:'Patch history', empty:'No patches yet.', contributions:'Contributions', issues:'Issues', patches:'Patches', upvotes:'Upvotes', merges:'Merges', edit:'Edit Profile' },
+    settings: { title:'Settings', description:'Manage your profile, language, and account settings.', profileSettings:'Profile Settings', language:'Language', displayName:'Display Name', avatarUrl:'Avatar URL', username:'Username', email:'Email', saveChanges:'Save Changes', saved:'Saved', signInPrompt:'Sign in to edit your profile, save patches, and contribute.', signOut:'Sign Out', signingOut:'Signing out…', appSettings:'App Settings / Language', appLanguageDescription:'Choose the language used across Patch!', saveError:'Could not save your settings.', yourName:'Your name', bio:'Bio', bioPlaceholder:'Tell people about you', clearCache:'Clear local cache', systemData:'System & Data', systemDataDescription:'Reset local voting and temporary device state.', appInfo:'App Information', terms:'Terms of Service', privacy:'Privacy Policy', version:'Version', viewProfile:'View profile', publicIdentity:'Your public Patch! identity', accountActions:'Account Actions', accountActionsDescription:'Sign out on this device or switch to another account.' },
+    common: { close:'Close', cancel:'Cancel', save:'Save', loading:'Loading…', error:'Something went wrong.' }
   },
   ja: {
-    nav: { home: 'ホーム', hall: '殿堂入り', gacha: 'ガチャ', profile: 'プロフィール', settings: '設定', post: 'Issueを投稿', signIn: 'ログイン', account: 'アカウント', notifications: '通知' },
-    auth: {
-      title: 'Patch!へようこそ', email: 'メールアドレス', password: 'パスワード', displayName: '表示名', username: 'ユーザーネーム',
-      signIn: 'ログイン', signUp: 'アカウントを作成', switchToSignUp: 'アカウントがない？作成する', switchToSignIn: 'すでにアカウントがありますか？ログイン',
-      close: '閉じる', signingIn: 'ログイン中…', signingUp: 'アカウント作成中…', invalidCredentials: 'メールアドレスまたはパスワードが正しくありません。',
-      confirmEmail: 'アカウントを作成しました。確認メールからメールアドレスを確認してください。',
-      missingFields: '必須項目を入力してください。', passwordLength: 'パスワードは6文字以上にしてください。'
-    },
-    home: {
-      live: 'ライブタイムライン', title: 'あなたの気まずいメッセージ。', subtitle: 'インターネットがパッチする。',
-      intro: '現実のコミュニケーション問題を投稿。みんなが、もっと鋭く、面白く、丁寧に、あるいは完全にカオスな文章へ書き換えます。',
-      loading: 'フィードを読み込んでいます…', empty: 'まだIssueがありません。', emptyHint: '最初のIssueを投稿して、インターネットにパッチしてもらいましょう。',
-      seeRewrites: '書き換えを見る', patch: 'パッチ', patches: 'パッチ'
-    },
-    issue: { submitPatch: 'パッチを投稿する', shareX: 'Xで共有', copy: 'コピー', report: '通報', patchTree: 'パッチツリー', patchTreeJa: 'パッチツリー', oneMessage: 'ひとつのメッセージ、無限の書き換え。', rePatch: '再パッチ' },
-    profile: { history: 'パッチ履歴', empty: 'まだパッチがありません。', contributions: 'コントリビューション', issues: 'Issue', patches: 'パッチ', upvotes: 'Upvote', merges: 'マージ', edit: 'プロフィールを編集' },
-    settings: {
-      title: '設定', description: 'プロフィール、言語、アカウント設定を管理します。', profileSettings: 'プロフィール設定', language: '言語設定',
-      displayName: '表示名', avatarUrl: 'アバターURL', username: 'ユーザーネーム', email: 'メールアドレス', saveChanges: '変更を保存', saved: '保存しました',
-      signInPrompt: 'プロフィール編集、Patchの保存、投稿にはログインしてください。', signOut: 'ログアウト', signingOut: 'ログアウト中…', appSettings: 'アプリ設定 / 言語設定',
-      appLanguageDescription: 'Patch!全体で使用する言語を選択します。', saveError: '設定を保存できませんでした。', yourName: '名前', bio: '自己紹介', bioPlaceholder: '自己紹介を入力',
-      clearCache: 'ローカルキャッシュを削除', systemData: 'システムとデータ', systemDataDescription: 'ローカル投票データと一時的な端末データをリセットします。', appInfo: 'アプリ情報',
-      terms: '利用規約', privacy: 'プライバシーポリシー', version: 'バージョン', viewProfile: 'プロフィールを見る', publicIdentity: '公開されるPatch!プロフィール',
-      accountActions: 'アカウント操作', accountActionsDescription: 'この端末からログアウトするか、別のアカウントに切り替えます。'
-    },
-    common: { close: '閉じる', cancel: 'キャンセル', save: '保存', loading: '読み込み中…', error: '問題が発生しました。' }
+    nav: { home:'ホーム', hall:'殿堂入り', gacha:'ガチャ', profile:'プロフィール', settings:'設定', post:'Issueを投稿', signIn:'ログイン', account:'アカウント', notifications:'通知' },
+    auth: { title:'Patch!へようこそ', email:'メールアドレス', password:'パスワード', displayName:'表示名', username:'ユーザーネーム', signIn:'ログイン', signUp:'アカウントを作成', switchToSignUp:'アカウントがない？作成する', switchToSignIn:'すでにアカウントがありますか？ログイン', close:'閉じる', signingIn:'ログイン中…', signingUp:'アカウント作成中…', invalidCredentials:'メールアドレスまたはパスワードが正しくありません。', confirmEmail:'アカウントを作成しました。確認メールからメールアドレスを確認してください。', missingFields:'必須項目を入力してください。', passwordLength:'パスワードは6文字以上にしてください。' },
+    home: { live:'ライブタイムライン', title:'あなたの気まずいメッセージ。', subtitle:'インターネットがパッチする。', intro:'現実のコミュニケーション問題を投稿。みんなが、もっと鋭く、面白く、丁寧に、あるいは完全にカオスな文章へ書き換えます。', loading:'フィードを読み込んでいます…', empty:'まだIssueがありません。', emptyHint:'最初のIssueを投稿して、インターネットにパッチしてもらいましょう。', seeRewrites:'書き換えを見る', patch:'パッチ', patches:'パッチ', homeBack:'タイムラインに戻る' },
+    issue: { submitPatch:'パッチを投稿する', shareX:'Xで共有', copy:'コピー', report:'通報', patchTree:'パッチツリー', oneMessage:'ひとつのメッセージ、無限の書き換え。', rePatch:'再パッチ', issueNotFound:'Issueが見つかりません', backHome:'ホームに戻る →', addPatchFirst:'先にパッチを追加してください', openingX:'Xを開いています…', copied:'コピーしました', officialMerged:'公式マージ済み', reportReason:'通報理由', reportRecorded:'通報を受け付けました。', reportFailed:'Issueを通報できませんでした。' },
+    profile: { history:'パッチ履歴', empty:'まだパッチがありません。', contributions:'コントリビューション', issues:'Issue', patches:'パッチ', upvotes:'Upvote', merges:'マージ', edit:'プロフィールを編集' },
+    settings: { title:'設定', description:'プロフィール、言語、アカウント設定を管理します。', profileSettings:'プロフィール設定', language:'言語設定', displayName:'表示名', avatarUrl:'アバターURL', username:'ユーザーネーム', email:'メールアドレス', saveChanges:'変更を保存', saved:'保存しました', signInPrompt:'プロフィール編集、パッチの保存、投稿にはログインしてください。', signOut:'ログアウト', signingOut:'ログアウト中…', appSettings:'アプリ設定 / 言語設定', appLanguageDescription:'Patch!全体で使用する言語を選択します。', saveError:'設定を保存できませんでした。', yourName:'名前', bio:'自己紹介', bioPlaceholder:'自己紹介を入力', clearCache:'ローカルキャッシュを削除', systemData:'システムとデータ', systemDataDescription:'ローカル投票データと一時的な端末データをリセットします。', appInfo:'アプリ情報', terms:'利用規約', privacy:'プライバシーポリシー', version:'バージョン', viewProfile:'プロフィールを見る', publicIdentity:'公開されるPatch!プロフィール', accountActions:'アカウント操作', accountActionsDescription:'この端末からログアウトするか、別のアカウントに切り替えます。' },
+    common: { close:'閉じる', cancel:'キャンセル', save:'保存', loading:'読み込み中…', error:'問題が発生しました。' }
   }
-} as const;
+};
 
-export type Dictionary = typeof dictionary.en;
-export function getDictionary(language: Language) { return dictionary[language]; }
+export function getDictionary(language: Language): Dictionary { return dictionary[language]; }

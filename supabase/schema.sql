@@ -1,243 +1,27 @@
 -- Patch! Ultimate engagement, branching and profile schema
 create extension if not exists pgcrypto;
-
-create table if not exists public.issues (
-  id uuid primary key default gen_random_uuid(),
-  content text not null,
-  category text not null default 'General',
-  owner_actor_id text not null default 'anonymous',
-  merged_patch_id uuid,
-  merged_at timestamptz,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.patches (
-  id uuid primary key default gen_random_uuid(),
-  issue_id uuid not null references public.issues(id) on delete cascade,
-  patched_text text not null,
-  patch_type text not null default 'Casual',
-  upvotes integer not null default 0 check (upvotes >= 0),
-  author_actor_id text not null default 'anonymous',
-  parent_patch_id uuid references public.patches(id) on delete cascade,
-  root_patch_id uuid,
-  depth integer not null default 0 check (depth >= 0),
-  is_ai_generated boolean not null default false,
-  is_merged boolean not null default false,
-  created_at timestamptz not null default now()
-);
-
-alter table public.issues add column if not exists owner_actor_id text not null default 'anonymous';
-alter table public.issues add column if not exists merged_patch_id uuid references public.patches(id) on delete set null;
-alter table public.issues add column if not exists merged_at timestamptz;
-alter table public.patches add column if not exists author_actor_id text not null default 'anonymous';
-alter table public.patches add column if not exists parent_patch_id uuid references public.patches(id) on delete cascade;
-alter table public.patches add column if not exists root_patch_id uuid;
-alter table public.patches add column if not exists depth integer not null default 0;
-alter table public.patches add column if not exists is_ai_generated boolean not null default false;
-alter table public.patches add column if not exists is_merged boolean not null default false;
-
-create index if not exists patches_parent_idx on public.patches(parent_patch_id);
-create index if not exists patches_root_idx on public.patches(root_patch_id);
-create index if not exists patches_author_idx on public.patches(author_actor_id);
-create index if not exists patches_votes_idx on public.patches(upvotes desc);
-
-create or replace function public.validate_patch_parent()
-returns trigger language plpgsql security invoker set search_path = public as $$
-declare parent_issue uuid; parent_depth integer; parent_root uuid;
-begin
-  if new.parent_patch_id is null then new.depth := 0; new.root_patch_id := new.id; return new; end if;
-  select issue_id, depth, root_patch_id into parent_issue, parent_depth, parent_root from public.patches where id=new.parent_patch_id;
-  if parent_issue is null then raise exception 'Parent Patch does not exist.'; end if;
-  if parent_issue <> new.issue_id then raise exception 'Parent Patch belongs to another Issue.'; end if;
-  new.depth := coalesce(parent_depth,0)+1;
-  new.root_patch_id := coalesce(parent_root,new.parent_patch_id);
-  return new;
-end;
-$$;
-
-drop trigger if exists patches_validate_parent on public.patches;
-create trigger patches_validate_parent before insert or update of parent_patch_id on public.patches for each row execute function public.validate_patch_parent();
-
-create table if not exists public.notifications (
-  id uuid primary key default gen_random_uuid(),
-  recipient_actor_id text not null,
-  type text not null check (type in ('patch_submitted','upvote_milestone','merged')),
-  title text not null,
-  message text not null,
-  issue_id uuid references public.issues(id) on delete cascade,
-  patch_id uuid references public.patches(id) on delete cascade,
-  milestone integer,
-  created_at timestamptz not null default now(),
-  read_at timestamptz
-);
-
-create index if not exists notifications_recipient_created_idx on public.notifications(recipient_actor_id, created_at desc);
-create unique index if not exists notifications_milestone_unique on public.notifications(recipient_actor_id, patch_id, type, milestone) where type='upvote_milestone';
-
-create table if not exists public.profiles (
-  actor_id text primary key,
-  display_name text not null,
-  bio text,
-  avatar_url text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table if not exists public.contribution_events (
-  id uuid primary key default gen_random_uuid(),
-  actor_id text not null,
-  event_type text not null check (event_type in ('issue_created','patch_created','merge_created')),
-  issue_id uuid references public.issues(id) on delete cascade,
-  patch_id uuid references public.patches(id) on delete cascade,
-  created_at timestamptz not null default now()
-);
-create index if not exists contribution_events_actor_date_idx on public.contribution_events(actor_id, created_at desc);
-create index if not exists contribution_events_date_idx on public.contribution_events(created_at desc);
-
-create table if not exists public.badges (
-  key text primary key,
-  name text not null,
-  description text not null,
-  icon text,
-  rule_type text not null
-);
-insert into public.badges(key,name,description,icon,rule_type) values
-('keigo_master','Keigo Master','Created 25+ Business Formal patches','🎩','style_count'),
-('psychopath_elite','Psychopath Elite','Created 25+ Psychopath / Chaos patches','☠️','style_count'),
-('poet_supreme','Poet Supreme','Created 25+ Poetic / Chunnibyou patches','🌙','style_count'),
-('merge_lord','Merge Lord','Achieved 10 official merges','👑','merge_count'),
-('viral_patchsmith','Viral Patchsmith','Collected 1000+ total upvotes','🔥','upvotes')
-on conflict (key) do nothing;
-
-create table if not exists public.user_badges (
-  actor_id text not null,
-  badge_key text not null references public.badges(key) on delete cascade,
-  earned_at timestamptz not null default now(),
-  primary key(actor_id,badge_key)
-);
-
-alter table public.issues enable row level security;
-alter table public.patches enable row level security;
-alter table public.notifications enable row level security;
-alter table public.profiles enable row level security;
-alter table public.contribution_events enable row level security;
-alter table public.user_badges enable row level security;
-
-drop policy if exists "Issues are publicly readable" on public.issues;
-drop policy if exists "Issues are publicly insertable" on public.issues;
-drop policy if exists "Patches are publicly readable" on public.patches;
-drop policy if exists "Patches are publicly insertable" on public.patches;
-drop policy if exists "Patches can increment their upvotes" on public.patches;
-drop policy if exists "Notifications are readable" on public.notifications;
-drop policy if exists "Notifications are updateable" on public.notifications;
-create policy "Issues are publicly readable" on public.issues for select to anon, authenticated using (true);
-create policy "Issues are publicly insertable" on public.issues for insert to anon, authenticated with check (true);
-create policy "Patches are publicly readable" on public.patches for select to anon, authenticated using (true);
-create policy "Patches are publicly insertable" on public.patches for insert to anon, authenticated with check (true);
-create policy "Patches are publicly updateable" on public.patches for update to anon, authenticated using (true) with check (upvotes >= 0);
-create policy "Notifications are readable" on public.notifications for select to anon, authenticated using (true);
-create policy "Notifications are updateable" on public.notifications for update to anon, authenticated using (true) with check (true);
-create policy "Profiles are readable" on public.profiles for select to anon, authenticated using (true);
-create policy "Profiles are insertable" on public.profiles for insert to anon, authenticated with check (true);
-create policy "Profiles are updateable" on public.profiles for update to anon, authenticated using (true) with check (true);
-create policy "Contribution events are readable" on public.contribution_events for select to anon, authenticated using (true);
-create policy "Contribution events are insertable" on public.contribution_events for insert to anon, authenticated with check (true);
-create policy "Badges are readable" on public.badges for select to anon, authenticated using (true);
-create policy "User badges are readable" on public.user_badges for select to anon, authenticated using (true);
-
-grant select, insert on public.issues to anon, authenticated;
-grant select, insert, update on public.patches to anon, authenticated;
-grant select, update on public.notifications to anon, authenticated;
-grant select, insert, update on public.profiles to anon, authenticated;
-grant select, insert on public.contribution_events to anon, authenticated;
-grant select on public.badges, public.user_badges to anon, authenticated;
-
-create or replace function public.record_contribution(p_actor_id text,p_event_type text,p_issue_id uuid default null,p_patch_id uuid default null)
-returns void language plpgsql security invoker set search_path=public as $$
-begin insert into public.contribution_events(actor_id,event_type,issue_id,patch_id) values(p_actor_id,p_event_type,p_issue_id,p_patch_id); end;
-$$;
-
-drop function if exists public.create_patch(uuid,text,text,text,uuid,boolean);
-create or replace function public.create_patch(p_issue_id uuid,p_patched_text text,p_patch_type text,p_actor_id text,p_parent_patch_id uuid default null,p_is_ai_generated boolean default false)
-returns public.patches language plpgsql security invoker set search_path=public as $$
-declare result_patch public.patches%rowtype; issue_owner text;
-begin
-  select owner_actor_id into issue_owner from public.issues where id=p_issue_id;
-  if issue_owner is null then raise exception 'Issue not found.'; end if;
-  insert into public.patches(issue_id,patched_text,patch_type,author_actor_id,parent_patch_id,is_ai_generated) values(p_issue_id,p_patched_text,p_patch_type,p_actor_id,p_parent_patch_id,p_is_ai_generated) returning * into result_patch;
-  if not p_is_ai_generated then
-    perform public.record_contribution(p_actor_id,'patch_created',p_issue_id,result_patch.id);
-    if p_actor_id <> issue_owner then
-      insert into public.notifications(recipient_actor_id,type,title,message,issue_id,patch_id) values(issue_owner,'patch_submitted','New Patch','Someone just patched your Issue.',p_issue_id,result_patch.id);
-    end if;
-  end if;
-  return result_patch;
-end;
-$$;
-grant execute on function public.create_patch(uuid,text,text,text,uuid,boolean) to anon, authenticated;
-
-create or replace function public.notify_patch_submission()
-returns trigger language plpgsql security invoker set search_path=public as $$
--- create_patch performs notification atomically; direct inserts remain harmless.
-begin return new; end;
-$$;
-
-drop function if exists public.increment_patch_upvotes(uuid);
-drop function if exists public.increment_patch_upvotes(uuid,text);
-create or replace function public.increment_patch_upvotes(p_patch_id uuid,p_actor_id text default 'anonymous')
-returns public.patches language plpgsql security invoker set search_path=public as $$
-declare updated_patch public.patches%rowtype; issue_title text;
-begin
-  update public.patches set upvotes=upvotes+1 where id=p_patch_id returning * into updated_patch;
-  if updated_patch.id is null then raise exception 'Patch not found.'; end if;
-  if updated_patch.upvotes in (10,25,50,100,250,500,1000) then
-    select split_part(content,E'\n',1) into issue_title from public.issues where id=updated_patch.issue_id;
-    insert into public.notifications(recipient_actor_id,type,title,message,issue_id,patch_id,milestone)
-    values(updated_patch.author_actor_id,'upvote_milestone',format('%s upvotes!',updated_patch.upvotes),format('Your Patch reached %s upvotes on "%s".',updated_patch.upvotes,coalesce(issue_title,'an Issue')),updated_patch.issue_id,updated_patch.id,updated_patch.upvotes)
-    on conflict do nothing;
-  end if;
-  return updated_patch;
-end;
-$$;
-grant execute on function public.increment_patch_upvotes(uuid,text) to anon, authenticated;
-
-create or replace function public.merge_patch(p_issue_id uuid,p_patch_id uuid,p_actor_id text)
-returns public.issues language plpgsql security invoker set search_path=public as $$
-declare issue_row public.issues%rowtype; patch_author text;
-begin
-  select * into issue_row from public.issues where id=p_issue_id and owner_actor_id=p_actor_id;
-  if issue_row.id is null then raise exception 'Only the Issue creator can merge a Patch.'; end if;
-  select author_actor_id into patch_author from public.patches where id=p_patch_id and issue_id=p_issue_id;
-  if patch_author is null then raise exception 'Patch does not belong to this Issue.'; end if;
-  update public.issues set merged_patch_id=p_patch_id,merged_at=now() where id=p_issue_id returning * into issue_row;
-  update public.patches set is_merged=true where id=p_patch_id;
-  if patch_author <> p_actor_id then insert into public.notifications(recipient_actor_id,type,title,message,issue_id,patch_id) values(patch_author,'merged','Patch merged!','Your Patch was selected as the official winning solution.',p_issue_id,p_patch_id); end if;
-  perform public.record_contribution(p_actor_id,'merge_created',p_issue_id,p_patch_id);
-  return issue_row;
-end;
-$$;
-grant execute on function public.merge_patch(uuid,uuid,text) to anon, authenticated;
-
-create or replace function public.mark_notification_read(p_notification_id uuid,p_actor_id text)
-returns void language sql security invoker set search_path=public as $$ update public.notifications set read_at=coalesce(read_at,now()) where id=p_notification_id and recipient_actor_id=p_actor_id; $$;
-grant execute on function public.mark_notification_read(uuid,text) to anon, authenticated;
-
-create or replace function public.get_profile_stats(p_actor_id text)
-returns table(issue_count bigint,patch_count bigint,merge_count bigint,total_upvotes bigint)
-language sql stable set search_path=public as $$
-select
- (select count(*) from public.contribution_events where actor_id=p_actor_id and event_type='issue_created'),
- (select count(*) from public.contribution_events where actor_id=p_actor_id and event_type='patch_created'),
- (select count(*) from public.contribution_events where actor_id=p_actor_id and event_type='merge_created'),
- (select coalesce(sum(upvotes),0) from public.patches where author_actor_id=p_actor_id);
-$$;
-
-grant execute on function public.get_profile_stats(text) to anon, authenticated;
-
-create or replace function public.get_contribution_heatmap(p_actor_id text,p_since timestamptz)
-returns table(day date,contributions bigint)
-language sql stable set search_path=public as $$
-with days as (select generate_series(p_since::date,current_date,interval '1 day')::date as day), counts as (select created_at::date day,count(*) contributions from public.contribution_events where actor_id=p_actor_id and created_at>=p_since group by created_at::date)
-select d.day,coalesce(c.contributions,0) from days d left join counts c using(day) order by d.day;
-$$;
-grant execute on function public.get_contribution_heatmap(text,timestamptz) to anon, authenticated;
+create table if not exists public.issues (id uuid primary key default gen_random_uuid(),content text not null,category text not null default 'General',owner_actor_id text not null default 'anonymous',merged_patch_id uuid,merged_at timestamptz,created_at timestamptz not null default now());
+create table if not exists public.patches (id uuid primary key default gen_random_uuid(),issue_id uuid not null references public.issues(id) on delete cascade,patched_text text not null,patch_type text not null default 'Casual',upvotes integer not null default 0 check (upvotes >= 0),author_actor_id text not null default 'anonymous',parent_patch_id uuid references public.patches(id) on delete cascade,root_patch_id uuid,depth integer not null default 0 check (depth >= 0),is_ai_generated boolean not null default false,is_merged boolean not null default false,created_at timestamptz not null default now());
+alter table public.issues add column if not exists owner_actor_id text not null default 'anonymous';alter table public.issues add column if not exists merged_patch_id uuid references public.patches(id) on delete set null;alter table public.issues add column if not exists merged_at timestamptz;alter table public.patches add column if not exists author_actor_id text not null default 'anonymous';alter table public.patches add column if not exists parent_patch_id uuid references public.patches(id) on delete cascade;alter table public.patches add column if not exists root_patch_id uuid;alter table public.patches add column if not exists depth integer not null default 0;alter table public.patches add column if not exists is_ai_generated boolean not null default false;alter table public.patches add column if not exists is_merged boolean not null default false;
+create index if not exists patches_parent_idx on public.patches(parent_patch_id);create index if not exists patches_root_idx on public.patches(root_patch_id);create index if not exists patches_author_idx on public.patches(author_actor_id);create index if not exists patches_votes_idx on public.patches(upvotes desc);
+create or replace function public.validate_patch_parent() returns trigger language plpgsql security invoker set search_path=public as $$ declare parent_issue uuid;parent_depth integer;parent_root uuid;begin if new.parent_patch_id is null then new.depth:=0;new.root_patch_id:=new.id;return new;end if;select issue_id,depth,root_patch_id into parent_issue,parent_depth,parent_root from public.patches where id=new.parent_patch_id;if parent_issue is null then raise exception 'Parent Patch does not exist.';end if;if parent_issue<>new.issue_id then raise exception 'Parent Patch belongs to another Issue.';end if;new.depth:=coalesce(parent_depth,0)+1;new.root_patch_id:=coalesce(parent_root,new.parent_patch_id);return new;end;$$;
+drop trigger if exists patches_validate_parent on public.patches;create trigger patches_validate_parent before insert or update of parent_patch_id on public.patches for each row execute function public.validate_patch_parent();
+create table if not exists public.notifications (id uuid primary key default gen_random_uuid(),recipient_actor_id text not null,type text not null check(type in ('patch_submitted','upvote_milestone','merged')),title text not null,message text not null,issue_id uuid references public.issues(id) on delete cascade,patch_id uuid references public.patches(id) on delete cascade,milestone integer,created_at timestamptz not null default now(),read_at timestamptz);create index if not exists notifications_recipient_created_idx on public.notifications(recipient_actor_id,created_at desc);create unique index if not exists notifications_milestone_unique on public.notifications(recipient_actor_id,patch_id,type,milestone) where type='upvote_milestone';
+create table if not exists public.profiles (actor_id text primary key,username text not null,display_name text not null,bio text,avatar_url text,language text not null default 'EN',created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+alter table public.profiles add column if not exists username text;alter table public.profiles add column if not exists language text not null default 'EN';
+update public.profiles set username='user_'||left(regexp_replace(actor_id,'[^a-zA-Z0-9]','','g'),10) where username is null or username='';
+alter table public.profiles alter column username set not null;alter table public.profiles drop constraint if exists profiles_language_check;alter table public.profiles add constraint profiles_language_check check(language in ('EN','JA'));create unique index if not exists profiles_username_unique on public.profiles(lower(username));
+create table if not exists public.contribution_events (id uuid primary key default gen_random_uuid(),actor_id text not null,event_type text not null check(event_type in ('issue_created','patch_created','merge_created')),issue_id uuid references public.issues(id) on delete cascade,patch_id uuid references public.patches(id) on delete cascade,created_at timestamptz not null default now());create index if not exists contribution_events_actor_date_idx on public.contribution_events(actor_id,created_at desc);create index if not exists contribution_events_date_idx on public.contribution_events(created_at desc);
+create table if not exists public.badges (key text primary key,name text not null,description text not null,icon text,rule_type text not null);insert into public.badges(key,name,description,icon,rule_type) values('keigo_master','Keigo Master','Created 25+ Business Formal patches','🎩','style_count'),('psychopath_elite','Psychopath Elite','Created 25+ Psychopath / Chaos patches','☠️','style_count'),('poet_supreme','Poet Supreme','Created 25+ Poetic / Chunnibyou patches','🌙','style_count'),('merge_lord','Merge Lord','Achieved 10 official merges','👑','merge_count'),('viral_patchsmith','Viral Patchsmith','Collected 1000+ total upvotes','🔥','upvotes') on conflict(key) do nothing;
+create table if not exists public.user_badges (actor_id text not null,badge_key text not null references public.badges(key) on delete cascade,earned_at timestamptz not null default now(),primary key(actor_id,badge_key));
+alter table public.issues enable row level security;alter table public.patches enable row level security;alter table public.notifications enable row level security;alter table public.profiles enable row level security;alter table public.contribution_events enable row level security;alter table public.user_badges enable row level security;
+drop policy if exists "Issues are publicly readable" on public.issues;drop policy if exists "Issues are publicly insertable" on public.issues;drop policy if exists "Patches are publicly readable" on public.patches;drop policy if exists "Patches are publicly insertable" on public.patches;drop policy if exists "Patches can increment their upvotes" on public.patches;drop policy if exists "Notifications are readable" on public.notifications;drop policy if exists "Notifications are updateable" on public.notifications;drop policy if exists "Profiles are readable" on public.profiles;drop policy if exists "Profiles are insertable" on public.profiles;drop policy if exists "Profiles are updateable" on public.profiles;
+create policy "Issues are publicly readable" on public.issues for select to anon,authenticated using(true);create policy "Issues are publicly insertable" on public.issues for insert to anon,authenticated with check(true);create policy "Patches are publicly readable" on public.patches for select to anon,authenticated using(true);create policy "Patches are publicly insertable" on public.patches for insert to anon,authenticated with check(true);create policy "Patches are publicly updateable" on public.patches for update to anon,authenticated using(true) with check(upvotes>=0);create policy "Notifications are readable" on public.notifications for select to anon,authenticated using(true);create policy "Notifications are updateable" on public.notifications for update to anon,authenticated using(true) with check(true);create policy "Profiles are publicly readable" on public.profiles for select to anon,authenticated using(true);create policy "Profiles are insertable" on public.profiles for insert to authenticated with check((select auth.uid())::text=actor_id);create policy "Profiles are updateable" on public.profiles for update to authenticated using((select auth.uid())::text=actor_id) with check((select auth.uid())::text=actor_id);create policy "Contribution events are readable" on public.contribution_events for select to anon,authenticated using(true);create policy "Contribution events are insertable" on public.contribution_events for insert to anon,authenticated with check(true);create policy "Badges are readable" on public.badges for select to anon,authenticated using(true);create policy "User badges are readable" on public.user_badges for select to anon,authenticated using(true);
+grant select,insert on public.issues to anon,authenticated;grant select,insert,update on public.patches to anon,authenticated;grant select,update on public.notifications to anon,authenticated;grant select on public.profiles to anon,authenticated;grant insert,update on public.profiles to authenticated;grant select,insert on public.contribution_events to anon,authenticated;grant select on public.badges,public.user_badges to anon,authenticated;
+create or replace function public.record_contribution(p_actor_id text,p_event_type text,p_issue_id uuid default null,p_patch_id uuid default null) returns void language plpgsql security invoker set search_path=public as $$ begin insert into public.contribution_events(actor_id,event_type,issue_id,patch_id) values(p_actor_id,p_event_type,p_issue_id,p_patch_id);end;$$;
+drop function if exists public.create_patch(uuid,text,text,text,uuid,boolean);create or replace function public.create_patch(p_issue_id uuid,p_patched_text text,p_patch_type text,p_actor_id text,p_parent_patch_id uuid default null,p_is_ai_generated boolean default false) returns public.patches language plpgsql security invoker set search_path=public as $$ declare result_patch public.patches%rowtype;issue_owner text;begin select owner_actor_id into issue_owner from public.issues where id=p_issue_id;if issue_owner is null then raise exception 'Issue not found.';end if;insert into public.patches(issue_id,patched_text,patch_type,author_actor_id,parent_patch_id,is_ai_generated) values(p_issue_id,p_patched_text,p_patch_type,p_actor_id,p_parent_patch_id,p_is_ai_generated) returning * into result_patch;if not p_is_ai_generated then perform public.record_contribution(p_actor_id,'patch_created',p_issue_id,result_patch.id);if p_actor_id<>issue_owner then insert into public.notifications(recipient_actor_id,type,title,message,issue_id,patch_id) values(issue_owner,'patch_submitted','New Patch','Someone just patched your Issue.',p_issue_id,result_patch.id);end if;end if;return result_patch;end;$$;grant execute on function public.create_patch(uuid,text,text, text,uuid,boolean) to anon,authenticated;
+drop function if exists public.increment_patch_upvotes(uuid);drop function if exists public.increment_patch_upvotes(uuid,text);create or replace function public.increment_patch_upvotes(p_patch_id uuid,p_actor_id text default 'anonymous') returns public.patches language plpgsql security invoker set search_path=public as $$ declare updated_patch public.patches%rowtype;issue_title text;begin update public.patches set upvotes=upvotes+1 where id=p_patch_id returning * into updated_patch;if updated_patch.id is null then raise exception 'Patch not found.';end if;if updated_patch.upvotes in(10,25,50,100,250,500,1000) then select split_part(content,E'\n',1) into issue_title from public.issues where id=updated_patch.issue_id;insert into public.notifications(recipient_actor_id,type,title,message,issue_id,patch_id,milestone) values(updated_patch.author_actor_id,'upvote_milestone',format('%s upvotes!',updated_patch.upvotes),format('Your Patch reached %s upvotes on "%s".',updated_patch.upvotes,coalesce(issue_title,'an Issue')),updated_patch.issue_id,updated_patch.id,updated_patch.upvotes) on conflict do nothing;end if;return updated_patch;end;$$;grant execute on function public.increment_patch_upvotes(uuid,text) to anon,authenticated;
+create or replace function public.merge_patch(p_issue_id uuid,p_patch_id uuid,p_actor_id text) returns public.issues language plpgsql security invoker set search_path=public as $$ declare issue_row public.issues%rowtype;patch_author text;begin select * into issue_row from public.issues where id=p_issue_id and owner_actor_id=p_actor_id;if issue_row.id is null then raise exception 'Only the Issue creator can merge a Patch.';end if;select author_actor_id into patch_author from public.patches where id=p_patch_id and issue_id=p_issue_id;if patch_author is null then raise exception 'Patch does not belong to this Issue.';end if;update public.issues set merged_patch_id=p_patch_id,merged_at=now() where id=p_issue_id returning * into issue_row;update public.patches set is_merged=true where id=p_patch_id;if patch_author<>p_actor_id then insert into public.notifications(recipient_actor_id,type,title,message,issue_id,patch_id) values(patch_author,'merged','Patch merged!','Your Patch was selected as the official winning solution.',p_issue_id,p_patch_id);end if;perform public.record_contribution(p_actor_id,'merge_created',p_issue_id,p_patch_id);return issue_row;end;$$;grant execute on function public.merge_patch(uuid,uuid,text) to anon,authenticated;
+create or replace function public.mark_notification_read(p_notification_id uuid,p_actor_id text) returns void language sql security invoker set search_path=public as $$ update public.notifications set read_at=coalesce(read_at,now()) where id=p_notification_id and recipient_actor_id=p_actor_id;$$;grant execute on function public.mark_notification_read(uuid,text) to anon,authenticated;
+create or replace function public.get_profile_stats(p_actor_id text) returns table(issue_count bigint,patch_count bigint,merge_count bigint,total_upvotes bigint) language sql stable set search_path=public as $$ select (select count(*) from public.contribution_events where actor_id=p_actor_id and event_type='issue_created'),(select count(*) from public.contribution_events where actor_id=p_actor_id and event_type='patch_created'),(select count(*) from public.contribution_events where actor_id=p_actor_id and event_type='merge_created'),(select coalesce(sum(upvotes),0) from public.patches where author_actor_id=p_actor_id);$$;grant execute on function public.get_profile_stats(text) to anon,authenticated;
+create or replace function public.get_contribution_heatmap(p_actor_id text,p_since timestamptz) returns table(day date,contributions bigint) language sql stable set search_path=public as $$ with days as(select generate_series(p_since::date,current_date,interval '1 day')::date day),counts as(select created_at::date day,count(*) contributions from public.contribution_events where actor_id=p_actor_id and created_at>=p_since group by created_at::date) select d.day,coalesce(c.contributions,0) from days d left join counts c using(day) order by d.day;$$;grant execute on function public.get_contribution_heatmap(text,timestamptz) to anon,authenticated;

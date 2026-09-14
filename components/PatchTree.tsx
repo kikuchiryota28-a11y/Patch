@@ -1,41 +1,4 @@
 'use client';
-
-import { GitBranch, Reply, ArrowUp } from 'lucide-react';
-import type { PatchItem } from '@/lib/types';
-
-export function PatchTree({ patches, onReply, onUpvote, onMerge, canMerge }: { patches: PatchItem[]; onReply: (patch: PatchItem) => void; onUpvote: (patch: PatchItem) => void; onMerge: (patch: PatchItem) => void; canMerge: boolean }) {
-  const children = new Map<string | null, PatchItem[]>();
-  for (const patch of patches) {
-    const key = patch.parentPatchId ?? null;
-    children.set(key, [...(children.get(key) ?? []), patch]);
-  }
-
-  function render(patch: PatchItem): React.ReactNode {
-    const nested = children.get(patch.id) ?? [];
-    return <div key={patch.id} className="relative">
-      <div className="rounded-3xl border border-white/8 bg-white/[0.025] p-5 transition hover:bg-white/[0.035]">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-white/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/45">{patch.style}</span>
-            {patch.isAiGenerated && <span className="rounded-full bg-indigo-300/10 px-2.5 py-1 text-[10px] font-bold text-indigo-200">AI</span>}
-            {patch.isMerged && <span className="rounded-full bg-emerald-300/10 px-2.5 py-1 text-[10px] font-bold text-emerald-200">MERGED</span>}
-          </div>
-          <span className="text-xs text-white/30">{patch.author}</span>
-        </div>
-        <p className="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-200">{patch.text}</p>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => onUpvote(patch)} className="inline-flex items-center gap-1.5 rounded-full border border-white/8 px-3 py-1.5 text-xs text-white/55 hover:bg-white/5 hover:text-white"><ArrowUp size={14} />{patch.votes}</button>
-          <button type="button" onClick={() => onReply(patch)} className="inline-flex items-center gap-1.5 rounded-full border border-white/8 px-3 py-1.5 text-xs text-white/55 hover:bg-white/5 hover:text-white"><Reply size={14} />Re-Patch</button>
-          {canMerge && !patch.isMerged && <button type="button" onClick={() => onMerge(patch)} className="ml-auto rounded-full bg-white px-3 py-1.5 text-xs font-bold text-black hover:bg-zinc-200">Merge</button>}
-        </div>
-      </div>
-      {nested.length > 0 && <div className="ml-5 mt-3 border-l border-white/10 pl-5 sm:ml-8 sm:pl-6"><div className="space-y-3">{nested.map(render)}</div></div>}
-    </div>;
-  }
-
-  const roots = children.get(null) ?? [];
-  return <section className="mt-10">
-    <div className="mb-5 flex items-center gap-2"><GitBranch size={17} className="text-indigo-300" /><div><div className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-300/80">Patch Tree</div><h2 className="mt-1 text-xl font-bold">One message. Infinite rewrites.</h2></div></div>
-    <div className="space-y-4">{roots.map(render)}</div>
-  </section>;
-}
+import {GitBranch,Reply,ArrowUp} from 'lucide-react';import type {PatchItem} from '@/lib/types';import {useLanguage} from '@/context/LanguageContext';
+const styleLabels={en:{'Business Formal':'Business Formal','Psychopath / Chaos':'Psychopath / Chaos','Poetic / Chunnibyou':'Poetic / Chunnibyou','Casual':'Casual','Corporate Passive-Aggressive':'Corporate Passive-Aggressive'},ja:{'Business Formal':'ビジネス敬語','Psychopath / Chaos':'カオス','Poetic / Chunnibyou':'詩的・中二病','Casual':'カジュアル','Corporate Passive-Aggressive':'企業風皮肉'}} as const;
+export function PatchTree({patches,onReply,onUpvote,onMerge,canMerge}:{patches:PatchItem[];onReply:(patch:PatchItem)=>void;onUpvote:(patch:PatchItem)=>void;onMerge:(patch:PatchItem)=>void;canMerge:boolean}){const{language,dictionary}=useLanguage();const d=dictionary.patch;const children=new Map<string|null,PatchItem[]>();for(const patch of patches){const key=patch.parentPatchId??null;children.set(key,[...(children.get(key)??[]),patch])}function render(patch:PatchItem):React.ReactNode{const nested=children.get(patch.id)??[];return <div key={patch.id} className="relative"><div className="rounded-3xl border border-white/8 bg-white/[0.025] p-5 transition hover:bg-white/[0.035]"><div className="flex items-center justify-between gap-3"><div className="flex flex-wrap items-center gap-2"><span className="rounded-full border border-white/8 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/45">{styleLabels[language][patch.style]}</span>{patch.isAiGenerated&&<span className="rounded-full bg-indigo-300/10 px-2.5 py-1 text-[10px] font-bold text-indigo-200">{d.aiSpawned}</span>}{patch.isMerged&&<span className="rounded-full bg-emerald-300/10 px-2.5 py-1 text-[10px] font-bold text-emerald-200">{d.merged}</span>}</div><span className="text-xs text-white/30">{patch.author}</span></div><p className="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-200">{patch.text}</p><div className="mt-4 flex flex-wrap items-center gap-2"><button type="button" onClick={()=>onUpvote(patch)} aria-label={`${d.upvoteLabel} ${patch.votes}`} className="inline-flex items-center gap-1.5 rounded-full border border-white/8 px-3 py-1.5 text-xs text-white/55 hover:bg-white/5 hover:text-white"><ArrowUp size={14}/>{patch.votes}</button><button type="button" onClick={()=>onReply(patch)} className="inline-flex items-center gap-1.5 rounded-full border border-white/8 px-3 py-1.5 text-xs text-white/55 hover:bg-white/5 hover:text-white"><Reply size={14}/>{d.rePatch}</button>{canMerge&&!patch.isMerged&&<button type="button" onClick={()=>onMerge(patch)} className="ml-auto rounded-full bg-white px-3 py-1.5 text-xs font-bold text-black hover:bg-zinc-200">{d.merge}</button>}</div></div>{nested.length>0&&<div className="ml-5 mt-3 border-l border-white/10 pl-5 sm:ml-8 sm:pl-6"><div className="space-y-3">{nested.map(render)}</div></div>}</div>};const roots=children.get(null)??[];return <section className="mt-10"><div className="mb-5 flex items-center gap-2"><GitBranch size={17} className="text-indigo-300"/><div><div className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-300/80">{dictionary.issue.patchTree}</div><h2 className="mt-1 text-xl font-bold">{dictionary.issue.oneMessage}</h2></div></div><div className="space-y-4">{roots.map(render)}</div></section>}

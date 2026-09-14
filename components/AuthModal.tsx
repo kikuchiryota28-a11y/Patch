@@ -7,7 +7,7 @@ import {useLanguage} from '@/context/LanguageContext';
 
 export function AuthModal(){
  const{authOpen,closeAuth,signIn,signUp}=useAuth();
- const{dictionary,language}=useLanguage();
+ const{dictionary}=useLanguage();
  const d=dictionary.auth;
  const[email,setEmail]=useState('');
  const[password,setPassword]=useState('');
@@ -18,6 +18,7 @@ export function AuthModal(){
  const[busy,setBusy]=useState(false);
  useEffect(()=>{if(!authOpen){setEmail('');setPassword('');setDisplayName('');setError('');setInfo('');setBusy(false)}},[authOpen]);
  if(!authOpen)return null;
+ const switchMode=(next:'signin'|'signup')=>{setMode(next);setError('');setInfo('');setBusy(false)};
  async function submit(){
   setError('');setInfo('');
   if(!email.trim()||!password||(mode==='signup'&&!displayName.trim())){setError(d.missingFields);return}
@@ -25,10 +26,10 @@ export function AuthModal(){
   setBusy(true);
   try{
    const result=mode==='signin'?await signIn(email,password):await signUp(email,password,displayName);
-   if(result.error){setError(language==='ja'&&result.message==='Invalid login credentials'?d.invalidCredentials:result.message??d.invalidCredentials);return}
+   if(result.error){setError(mode==='signin'?d.invalidCredentials:d.signUpError);return}
    if(result.message==='CONFIRM_EMAIL'){setInfo(d.confirmEmail);return}
    closeAuth();
-  }catch(errorValue){setError(errorValue instanceof Error?errorValue.message:d.invalidCredentials)}finally{setBusy(false)}
+  }catch{setError(mode==='signin'?d.invalidCredentials:d.signUpError)}finally{setBusy(false)}
  }
  return <div className="fixed inset-0 z-[60] grid place-items-center bg-black/80 p-4 backdrop-blur-xl" onMouseDown={closeAuth}>
   <div role="dialog" aria-modal="true" aria-labelledby="patch-auth-title" className="w-full max-w-md rounded-[28px] border border-white/10 bg-zinc-900/95 p-6 shadow-[0_30px_100px_rgba(0,0,0,.65)]" onMouseDown={e=>e.stopPropagation()}>
@@ -41,7 +42,7 @@ export function AuthModal(){
    </form>
    {error&&<p role="alert" className="mt-4 rounded-2xl border border-red-400/20 bg-red-400/[0.06] p-3 text-xs leading-5 text-red-200">{error}</p>}
    {info&&<p role="status" className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-3 text-xs leading-5 text-emerald-200">{info}</p>}
-   <button type="button" onClick={()=>{setMode(mode==='signin'?'signup':'signin');setError('');setInfo('')}} className="mt-5 w-full py-2 text-xs font-semibold text-zinc-500 hover:text-white">{mode==='signin'?d.switchToSignUp:d.switchToSignIn}</button>
+   <button type="button" onClick={()=>switchMode(mode==='signin'?'signup':'signin')} disabled={busy} aria-label={mode==='signin'?d.switchToSignUp:d.switchToSignIn} className="mt-5 w-full rounded-lg px-2 py-2 text-xs font-semibold text-zinc-500 transition hover:bg-white/[0.06] hover:text-white disabled:pointer-events-none disabled:opacity-50">{mode==='signin'?d.switchToSignUp:d.switchToSignIn}</button>
   </div>
  </div>
 }

@@ -6,7 +6,7 @@ import { fetchRanking } from '@/lib/patchDb';
 import { useI18n } from '@/components/I18nProvider';
 
 export default function HallOfFamePage(){
- const{t}=useI18n();
+ const{dictionary:t}=useI18n();
  const[data,setData]=useState<Awaited<ReturnType<typeof fetchRanking>>|null>(null);const[tab,setTab]=useState<'all'|'week'>('all');
  useEffect(()=>{void fetchRanking().then(setData).catch(console.error);},[]);
  const entries=tab==='all'?(data?.patches??[]):(data?.weeklyPatches??[]);

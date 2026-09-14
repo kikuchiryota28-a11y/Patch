@@ -18,6 +18,7 @@ export function AuthModal(){
  const[busy,setBusy]=useState(false);
  useEffect(()=>{if(!authOpen){setEmail('');setPassword('');setDisplayName('');setError('');setInfo('');setBusy(false)}},[authOpen]);
  if(!authOpen)return null;
+ const switchMode=(next:'signin'|'signup')=>{setMode(next);setError('');setInfo('');setBusy(false)};
  async function submit(){
   setError('');setInfo('');
   if(!email.trim()||!password||(mode==='signup'&&!displayName.trim())){setError(d.missingFields);return}
@@ -41,7 +42,7 @@ export function AuthModal(){
    </form>
    {error&&<p role="alert" className="mt-4 rounded-2xl border border-red-400/20 bg-red-400/[0.06] p-3 text-xs leading-5 text-red-200">{error}</p>}
    {info&&<p role="status" className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-3 text-xs leading-5 text-emerald-200">{info}</p>}
-   <button type="button" onClick={()=>{setMode(mode==='signin'?'signup':'signin');setError('');setInfo('')}} className="mt-5 w-full py-2 text-xs font-semibold text-zinc-500 hover:text-white">{mode==='signin'?d.switchToSignUp:d.switchToSignIn}</button>
+   <button type="button" onClick={()=>switchMode(mode==='signin'?'signup':'signin')} disabled={busy} aria-label={mode==='signin'?d.switchToSignUp:d.switchToSignIn} className="mt-5 w-full rounded-lg px-2 py-2 text-xs font-semibold text-zinc-500 transition hover:bg-white/[0.06] hover:text-white disabled:pointer-events-none disabled:opacity-50">{mode==='signin'?d.switchToSignUp:d.switchToSignIn}</button>
   </div>
  </div>
 }
